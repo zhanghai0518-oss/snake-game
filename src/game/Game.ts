@@ -136,9 +136,11 @@ export class Game {
   }
 
   private adjustSpeed(): void {
-    // Speed up as score increases
-    const speedBoost = Math.floor(this.score.current / 50) * 5;
-    this.gameSpeed = Math.max(60, this.config.baseSpeed - speedBoost);
+    // 根据蛇的长度逐渐加速：初始很慢(300ms)，越长越快，最快80ms
+    const snakeLength = this.snake.length;
+    const extraSegments = Math.max(0, snakeLength - 3); // 初始3节不算
+    const speedBoost = extraSegments * 8; // 每长一节快8ms
+    this.gameSpeed = Math.max(80, this.config.baseSpeed - speedBoost);
   }
 
   private togglePause(): void {
