@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>🐍 贪吃蛇大作战</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0f0f23;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; font-family: 'PingFang SC', Arial, sans-serif;
+      overflow: hidden; color: #fff;
+    }
+    #game-container { position: relative; text-align: center; }
+    canvas { border: 2px solid #00ff88; border-radius: 8px; display: block; margin: 0 auto; }
+    #menu {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      background: rgba(15,15,35,0.95); border-radius: 8px; z-index: 10;
+    }
+    #menu.hidden { display: none; }
+    #menu h1 { font-size: 48px; margin-bottom: 10px; }
+    #menu h2 { font-size: 18px; color: #aaa; margin-bottom: 30px; }
+    #start-btn {
+      padding: 15px 40px; font-size: 20px; background: #00ff88;
+      color: #0f0f23; border: none; border-radius: 25px; cursor: pointer;
+      font-weight: bold; transition: transform 0.2s;
+    }
+    #start-btn:hover { transform: scale(1.1); }
+    .controls { margin-top: 15px; font-size: 13px; color: #666; }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas" width="600" height="600"></canvas>
+    <div id="menu">
+      <h1>🐍</h1>
+      <h2>贪吃蛇大作战</h2>
+      <button id="start-btn">开始游戏</button>
+      <div class="controls">
+        ⬆️⬇️⬅️➡️ / WASD 移动 | P 暂停 | R 重开
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

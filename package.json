@@ -1,0 +1,28 @@
+{
+  "name": "snake-battle",
+  "version": "1.0.0",
+  "description": "贪吃蛇大作战 - 多平台贪吃蛇游戏",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "build:wechat": "tsc && node scripts/build-wechat.js",
+    "build:steam": "tsc && vite build && electron-builder",
+    "test": "vitest",
+    "lint": "eslint src/ --ext .ts",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "snake",
+    "game",
+    "wechat-mini-game",
+    "steam"
+  ],
+  "author": "zhanghai0518",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  }
+}
