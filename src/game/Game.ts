@@ -26,7 +26,7 @@ export class Game {
   private sound: SoundManager;
   private lastTime: number = 0;
   private accumulator: number = 0;
-  private gameSpeed: number = 150; // ms per tick
+  private gameSpeed: number = 500; // ms per tick, will be set from config
 
   constructor(canvas: HTMLCanvasElement, config: Partial<GameConfig> = {}) {
     this.canvas = canvas;
@@ -136,11 +136,11 @@ export class Game {
   }
 
   private adjustSpeed(): void {
-    // 根据蛇的长度逐渐加速：初始很慢(300ms)，越长越快，最快80ms
+    // 根据蛇的长度逐渐加速：初始很慢(500ms)，越长越快，最快100ms
     const snakeLength = this.snake.length;
     const extraSegments = Math.max(0, snakeLength - 3); // 初始3节不算
-    const speedBoost = extraSegments * 8; // 每长一节快8ms
-    this.gameSpeed = Math.max(80, this.config.baseSpeed - speedBoost);
+    const speedBoost = extraSegments * 15; // 每长一节快15ms，变化更明显
+    this.gameSpeed = Math.max(100, this.config.baseSpeed - speedBoost);
   }
 
   private togglePause(): void {
