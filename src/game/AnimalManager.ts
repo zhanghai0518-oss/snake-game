@@ -182,7 +182,7 @@ const ANIMAL_UNLOCK_STAGES: { minScore: number; types: AnimalType[] }[] = [
 export class AnimalManager {
   private animals: Animal[] = [];
   private config: GameConfig;
-  private maxAnimals: number = 4;  // 初始少量，逐步增加
+  private maxAnimals: number = 2;  // 开局最多2个猎物，简单不凌乱
   private snakeEggStreak: number = 0;
   private currentScore: number = 0;
 
@@ -197,7 +197,8 @@ export class AnimalManager {
   update(deltaMs: number, snakeHead: Position, snakeBody: Position[], buffSystem: BuffSystem, score: number = 0): void {
     this.currentScore = score;
     // 根据分数逐步增加场上动物数量：0分4只，50分5只，100分6只，150分7只，200分8只
-    this.maxAnimals = Math.min(8, 4 + Math.floor(score / 50));
+    // 渐进式增加：0分2只→30分3只→60分4只→100分5只→150分6只
+    this.maxAnimals = Math.min(6, 2 + Math.floor(score / 30));
     const frozen = buffSystem.has(BuffType.FREEZE_ENEMIES);
 
     for (const animal of this.animals) {
