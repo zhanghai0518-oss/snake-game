@@ -124,37 +124,47 @@ export class TerrainManager {
   }
 
   private generateBushes(): void {
-    const count = 3 + Math.floor(Math.random() * 3); // 3-5
+    const count = 4 + Math.floor(Math.random() * 3); // 4-6条灌木带
     const gw = this.config.gridWidth;
     const gh = this.config.gridHeight;
 
     for (let i = 0; i < count; i++) {
       let gx: number, gy: number;
       let attempts = 0;
-      // Find position not in river
       do {
-        gx = 1 + Math.floor(Math.random() * (gw - 3));
-        gy = 1 + Math.floor(Math.random() * (gh - 3));
+        gx = Math.floor(Math.random() * (gw - 2));
+        gy = Math.floor(Math.random() * (gh - 2));
         attempts++;
       } while (this.isInRiver({ x: gx, y: gy }) && attempts < 20);
 
-      const w = 2 + Math.floor(Math.random() * 2); // 2-3 cells wide
-      const h = 2 + Math.floor(Math.random() * 2); // 2-3 cells tall
+      // 长条形灌木：随机水平或垂直方向
+      const isHorizontal = Math.random() > 0.5;
+      const length = 3 + Math.floor(Math.random() * 3); // 3-5格长
+      const w = isHorizontal ? length : 1;
+      const h = isHorizontal ? 1 : length;
 
-      // Generate overlapping circles for bush look
+      // 确保不超出边界
+      const finalW = Math.min(w, gw - gx);
+      const finalH = Math.min(h, gh - gy);
+
+      // 沿着长条方向排列椭圆形灌木丛
       const circles: Bush['circles'] = [];
-      const numCircles = 5 + Math.floor(Math.random() * 4);
-      const greens = ['#1a8c0e', '#22aa15', '#0f6608', '#2ebc1e', '#18750d'];  // 更鲜艳的绿色
+      const greens = ['#1a8c0e', '#22aa15', '#158a08', '#2ebc1e', '#0d7a05'];
+      const numCircles = (finalW + finalH) * 2 + 3; // 更多圆形填满长条
+
       for (let c = 0; c < numCircles; c++) {
+        // 沿长条方向分布，有轻微随机偏移
+        const along = (c / numCircles) - 0.5; // -0.5 to 0.5
+        const cross = (Math.random() - 0.5) * 0.6;
         circles.push({
-          ox: (Math.random() - 0.5) * w * this.cellSize * 0.8,
-          oy: (Math.random() - 0.5) * h * this.cellSize * 0.8,
-          r: this.cellSize * (0.5 + Math.random() * 0.6),  // 更大的灌木圆
+          ox: (isHorizontal ? along : cross) * finalW * this.cellSize,
+          oy: (isHorizontal ? cross : along) * finalH * this.cellSize,
+          r: this.cellSize * (0.4 + Math.random() * 0.35),
           color: greens[Math.floor(Math.random() * greens.length)],
         });
       }
 
-      this.bushes.push({ gridX: gx, gridY: gy, width: w, height: h, circles });
+      this.bushes.push({ gridX: gx, gridY: gy, width: finalW, height: finalH, circles });
     }
   }
 
@@ -321,20 +331,42 @@ export class TerrainManager {
     for (const bush of this.bushes) {
       const cx = (bush.gridX + bush.width / 2) * cs;
       const cy = (bush.gridY + bush.height / 2) * cs;
+
+      // 底层深色（阴影层）
+      for (const circle of bush.circles) {
+        ctx.fillStyle = '#0a5500';
+        ctx.beginPath();
+        ctx.arc(cx + circle.ox, cy + circle.oy + 3, circle.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 主体灌木丛
       for (const circle of bush.circles) {
         ctx.fillStyle = circle.color;
-        ctx.strokeStyle = 'rgba(0,50,0,0.4)';
-        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(cx + circle.ox, cy + circle.oy, circle.r, 0, Math.PI * 2);
         ctx.fill();
+        // 深色描边
+        ctx.strokeStyle = '#0a5500';
+        ctx.lineWidth = 2;
         ctx.stroke();
       }
-      // Highlight on top circles
-      for (const circle of bush.circles.slice(-2)) {
-        ctx.fillStyle = 'rgba(80,160,60,0.3)';
+
+      // 顶部高光叶片
+      for (const circle of bush.circles) {
+        ctx.fillStyle = 'rgba(120,220,80,0.4)';
         ctx.beginPath();
-        ctx.arc(cx + circle.ox - circle.r * 0.2, cy + circle.oy - circle.r * 0.2, circle.r * 0.5, 0, Math.PI * 2);
+        ctx.arc(cx + circle.ox - circle.r * 0.2, cy + circle.oy - circle.r * 0.25, circle.r * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 小叶子细节点缀
+      ctx.fillStyle = '#33cc22';
+      for (let j = 0; j < 4; j++) {
+        const lx = cx + (Math.random() - 0.5) * bush.width * cs * 0.7;
+        const ly = cy + (Math.random() - 0.5) * bush.height * cs * 0.5;
+        ctx.beginPath();
+        ctx.ellipse(lx, ly, cs * 0.08, cs * 0.04, Math.random() * Math.PI, 0, Math.PI * 2);
         ctx.fill();
       }
     }
