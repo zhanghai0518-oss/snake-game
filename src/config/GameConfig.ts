@@ -8,9 +8,9 @@ export interface GameConfig {
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
-  gridWidth: 15,
-  gridHeight: 15,
-  cellSize: 40,
+  gridWidth: 12,
+  gridHeight: 12,
+  cellSize: 50,
   baseSpeed: 500,
   wallCollision: true,
   gameMode: 'classic',
