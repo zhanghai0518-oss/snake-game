@@ -1416,6 +1416,128 @@ export class Renderer {
     ctx.restore();
   }
 
+  // ===================== 关卡UI =====================
+
+  drawLevelInfo(level: number, name: string, progress: number, score: number, targetScore: number): void {
+    const ctx = this.ctx;
+    const w = ctx.canvas.width;
+
+    // 关卡标签（左上角，在分数下方）
+    const levelText = `第${level}关 ${name}`;
+    ctx.font = 'bold 13px "PingFang SC", Arial';
+    const metrics = ctx.measureText(levelText);
+    const pw = metrics.width + 16;
+    const ph = 22;
+    const bx = 10;
+    const by = 36;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath();
+    ctx.roundRect(bx, by, pw, ph, 11);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffdd44';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(levelText, bx + 8, by + ph / 2);
+
+    // 进度条
+    const barX = 10;
+    const barY = by + ph + 4;
+    const barW = Math.min(180, w - 20);
+    const barH = 10;
+
+    // 背景
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, barW, barH, 5);
+    ctx.fill();
+
+    // 填充
+    const fillW = barW * Math.min(1, progress);
+    if (fillW > 0) {
+      const grad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+      grad.addColorStop(0, '#44dd44');
+      grad.addColorStop(1, '#ffdd00');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(barX, barY, fillW, barH, 5);
+      ctx.fill();
+    }
+
+    // 分数文字
+    const scoreText = isFinite(targetScore) ? `${score}/${targetScore}` : `${score}/∞`;
+    ctx.font = 'bold 9px "PingFang SC", Arial';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText(scoreText, barX + barW / 2, barY + barH / 2 + 1);
+  }
+
+  // 通关庆祝：半透明遮罩 + 大字
+  private levelUpTimer: number = 0;
+  private levelUpName: string = '';
+  private levelUpLevel: number = 0;
+
+  triggerLevelUp(level: number, name: string): void {
+    this.levelUpTimer = 2.0;
+    this.levelUpLevel = level;
+    this.levelUpName = name;
+  }
+
+  drawLevelUp(): void {
+    if (this.levelUpTimer <= 0) return;
+    const ctx = this.ctx;
+    const w = ctx.canvas.width;
+    const h = ctx.canvas.height;
+
+    // Fade
+    const alpha = Math.min(1, this.levelUpTimer / 0.3);
+    ctx.fillStyle = `rgba(0,0,0,${0.5 * alpha})`;
+    ctx.fillRect(0, 0, w, h);
+
+    // Card
+    const cw = 320, ch = 140;
+    const cx = (w - cw) / 2, cy = (h - ch) / 2;
+    ctx.fillStyle = `rgba(255,215,0,${0.15 * alpha})`;
+    ctx.beginPath();
+    ctx.roundRect(cx, cy, cw, ch, 18);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255,215,0,${0.5 * alpha})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(cx, cy, cw, ch, 18);
+    ctx.stroke();
+
+    ctx.globalAlpha = alpha;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 🎉 title
+    ctx.font = 'bold 30px "PingFang SC", Arial';
+    ctx.fillStyle = '#ffdd00';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    const title = `🎉 第${this.levelUpLevel}关 通关！`;
+    ctx.strokeText(title, w / 2, h / 2 - 25);
+    ctx.fillText(title, w / 2, h / 2 - 25);
+
+    ctx.font = 'bold 20px "PingFang SC", Arial';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`进入: ${this.levelUpName}`, w / 2, h / 2 + 20);
+
+    ctx.globalAlpha = 1;
+  }
+
+  updateLevelUpTimer(dt: number): void {
+    if (this.levelUpTimer > 0) {
+      this.levelUpTimer -= dt;
+    }
+  }
+
+  get isShowingLevelUp(): boolean {
+    return this.levelUpTimer > 0;
+  }
+
   drawBuffs(buffs: Buff[]): void {
     if (buffs.length === 0) return;
     let y = 45;

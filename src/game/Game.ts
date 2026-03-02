@@ -4,6 +4,7 @@ import { AnimalManager } from './AnimalManager';
 import { BuffSystem, BuffType } from './BuffSystem';
 import { GameConfig, DEFAULT_CONFIG } from '../config/GameConfig';
 import { InputManager } from './InputManager';
+import { LevelManager } from './LevelManager';
 import { Renderer } from './Renderer';
 import { ScoreManager } from './ScoreManager';
 import { SoundManager } from '../utils/SoundManager';
@@ -39,6 +40,10 @@ export class Game {
   // Terrain system
   private terrain: TerrainManager;
 
+  // Level system
+  private levelManager: LevelManager;
+  private levelUpPauseTimer: number = 0;
+
   constructor(canvas: HTMLCanvasElement, config: Partial<GameConfig> = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -51,6 +56,8 @@ export class Game {
     this.animalManager = new AnimalManager(this.config);
     this.buffSystem = new BuffSystem();
     this.terrain = new TerrainManager(this.config);
+    this.levelManager = new LevelManager();
+    this.applyLevelConfig();
     
     this.setupEventListeners();
   }
@@ -72,13 +79,36 @@ export class Game {
     this.gameLoop(this.lastTime);
   }
 
+  private applyLevelConfig(): void {
+    const level = this.levelManager.getCurrentLevel(this.score.current);
+    this.animalManager.setLevelFilter(
+      level.availableAnimals,
+      level.availableEnemies,
+      level.maxAnimals,
+      level.scoreMultiplier,
+    );
+    this.gameSpeed = level.baseSpeed;
+  }
+
   private gameLoop(currentTime: number): void {
     const deltaTime = currentTime - this.lastTime;
     this.lastTime = currentTime;
+
+    // Level-up pause
+    this.renderer.updateLevelUpTimer(deltaTime / 1000);
+    if (this.levelUpPauseTimer > 0) {
+      this.levelUpPauseTimer -= deltaTime;
+      this.render();
+      if (this.state !== GameState.GAME_OVER) {
+        requestAnimationFrame((t) => this.gameLoop(t));
+      }
+      return;
+    }
+
     this.accumulator += deltaTime;
 
     // Update animals and buffs every frame
-    this.animalManager.update(deltaTime, this.snake.head, this.snake.body, this.buffSystem);
+    this.animalManager.update(deltaTime, this.snake.head, this.snake.body, this.buffSystem, this.score.current);
     this.buffSystem.update(deltaTime);
 
     // Poison tick: -1 per second while poisoned
@@ -162,7 +192,17 @@ export class Game {
         this.snake.grow(result.growAmount);
       }
       if (result.points > 0) {
+        const oldScore = this.score.current;
         this.score.add(result.points);
+        const newScore = this.score.current;
+        // Check level up
+        if (this.levelManager.isLevelUp(oldScore, newScore)) {
+          const completedLevel = this.levelManager.getCurrentLevel(oldScore);
+          const nextLevel = this.levelManager.getCurrentLevel(newScore);
+          this.renderer.triggerLevelUp(completedLevel.level, nextLevel.name);
+          this.levelUpPauseTimer = 2000; // 2 second pause
+          this.applyLevelConfig();
+        }
       }
       if (result.buffType !== undefined && result.buffDurationMs !== undefined) {
         this.buffSystem.add(result.buffType, result.buffDurationMs);
@@ -235,9 +275,17 @@ export class Game {
     this.terrain.renderOverlay(this.ctx, renderTime);
 
     this.renderer.drawUI(this.score.current, this.score.high, this.state);
+
+    // Draw level info
+    const currentLevel = this.levelManager.getCurrentLevel(this.score.current);
+    const progress = this.levelManager.getLevelProgress(this.score.current);
+    this.renderer.drawLevelInfo(currentLevel.level, currentLevel.name, progress, this.score.current, currentLevel.targetScore);
     
     // Draw active buffs
     this.renderer.drawBuffs(this.buffSystem.getAll());
+
+    // Draw level-up celebration overlay
+    this.renderer.drawLevelUp();
 
     if (this.state === GameState.GAME_OVER) {
       this.renderer.drawGameOver(this.score.current);
@@ -247,10 +295,11 @@ export class Game {
   // spawnFood removed — AnimalManager handles all spawning
 
   private adjustSpeed(): void {
+    const level = this.levelManager.getCurrentLevel(this.score.current);
     const snakeLength = this.snake.length;
     const extraSegments = Math.max(0, snakeLength - 3);
-    const speedBoost = extraSegments * 15;
-    this.gameSpeed = Math.max(100, this.config.baseSpeed - speedBoost);
+    const speedBoost = extraSegments * 10;
+    this.gameSpeed = Math.max(80, level.baseSpeed - speedBoost);
   }
 
   private togglePause(): void {
@@ -277,6 +326,8 @@ export class Game {
     this.buffSystem.clear();
     this.poisonTimer = 0;
     this.terrain = new TerrainManager(this.config);
+    this.levelUpPauseTimer = 0;
+    this.applyLevelConfig();
     this.start();
   }
 

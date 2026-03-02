@@ -186,8 +186,22 @@ export class AnimalManager {
   private snakeEggStreak: number = 0;
   private currentScore: number = 0;
 
+  // Level-based filtering (set by Game via setLevelFilter)
+  private levelAvailableAnimals: string[] | null = null;
+  private levelAvailableEnemies: string[] | null = null;
+  private levelMaxAnimals: number | null = null;
+  private levelScoreMultiplier: number = 1;
+
   constructor(config: GameConfig) {
     this.config = config;
+  }
+
+  /** Called by Game when level changes to restrict animal types */
+  setLevelFilter(availableAnimals: string[], availableEnemies: string[], maxAnimals: number, scoreMultiplier: number): void {
+    this.levelAvailableAnimals = availableAnimals;
+    this.levelAvailableEnemies = availableEnemies;
+    this.levelMaxAnimals = maxAnimals;
+    this.levelScoreMultiplier = scoreMultiplier;
   }
 
   getAnimals(): Animal[] {
@@ -196,9 +210,12 @@ export class AnimalManager {
 
   update(deltaMs: number, snakeHead: Position, snakeBody: Position[], buffSystem: BuffSystem, score: number = 0): void {
     this.currentScore = score;
-    // 根据分数逐步增加场上动物数量：0分4只，50分5只，100分6只，150分7只，200分8只
-    // 渐进式增加：0分2只→30分3只→60分4只→100分5只→150分6只
-    this.maxAnimals = Math.min(6, 2 + Math.floor(score / 30));
+    // Use level-based max if set, otherwise fallback to progressive
+    if (this.levelMaxAnimals !== null) {
+      this.maxAnimals = this.levelMaxAnimals;
+    } else {
+      this.maxAnimals = Math.min(6, 2 + Math.floor(score / 30));
+    }
     const frozen = buffSystem.has(BuffType.FREEZE_ENEMIES);
 
     for (const animal of this.animals) {
@@ -303,6 +320,11 @@ export class AnimalManager {
       this.snakeEggStreak = 0;
     }
 
+    // Apply level score multiplier
+    if (this.levelScoreMultiplier !== 1 && result.points > 0) {
+      result.points = Math.round(result.points * this.levelScoreMultiplier);
+    }
+
     return result;
   }
 
@@ -315,14 +337,24 @@ export class AnimalManager {
   }
 
   private pickAnimalDef(): AnimalDef {
-    // 根据当前分数过滤已解锁的动物类型
-    const unlockedTypes = new Set<AnimalType>();
-    for (const stage of ANIMAL_UNLOCK_STAGES) {
-      if (this.currentScore >= stage.minScore) {
-        stage.types.forEach(t => unlockedTypes.add(t));
+    // If level filter is set, use it; otherwise fall back to score-based unlock
+    let available: AnimalDef[];
+    if (this.levelAvailableAnimals !== null && this.levelAvailableEnemies !== null) {
+      const allowed = new Set<string>([...this.levelAvailableAnimals, ...this.levelAvailableEnemies]);
+      // Always include powerups
+      for (const d of ANIMAL_DEFS) {
+        if (d.category === 'powerup') allowed.add(d.type);
       }
+      available = ANIMAL_DEFS.filter(d => allowed.has(d.type));
+    } else {
+      const unlockedTypes = new Set<AnimalType>();
+      for (const stage of ANIMAL_UNLOCK_STAGES) {
+        if (this.currentScore >= stage.minScore) {
+          stage.types.forEach(t => unlockedTypes.add(t));
+        }
+      }
+      available = ANIMAL_DEFS.filter(d => unlockedTypes.has(d.type));
     }
-    const available = ANIMAL_DEFS.filter(d => unlockedTypes.has(d.type));
     if (available.length === 0) return ANIMAL_DEFS[0];
 
     // 按概率加权随机
