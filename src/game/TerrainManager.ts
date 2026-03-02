@@ -41,7 +41,7 @@ export class TerrainManager {
   private crocodiles: Crocodile[] = [];
   private decorations: Decoration[] = [];
   private dirtTexture: Array<{ x: number; y: number; shade: number }> = [];
-  private lastCrocSpawn: number = 0;
+  private lastCrocSpawn: number = -5;  // 首只鳄鱼5秒后出现
   private currentTime: number = 0;
 
   // River bezier control points for rendering
@@ -138,12 +138,12 @@ export class TerrainManager {
       // Generate overlapping circles for bush look
       const circles: Bush['circles'] = [];
       const numCircles = 5 + Math.floor(Math.random() * 4);
-      const greens = ['#2d6b1e', '#357a24', '#1f5516', '#3d8a2e', '#245f18'];
+      const greens = ['#1a8c0e', '#22aa15', '#0f6608', '#2ebc1e', '#18750d'];  // 更鲜艳的绿色
       for (let c = 0; c < numCircles; c++) {
         circles.push({
           ox: (Math.random() - 0.5) * w * this.cellSize * 0.8,
           oy: (Math.random() - 0.5) * h * this.cellSize * 0.8,
-          r: this.cellSize * (0.3 + Math.random() * 0.5),
+          r: this.cellSize * (0.5 + Math.random() * 0.6),  // 更大的灌木圆
           color: greens[Math.floor(Math.random() * greens.length)],
         });
       }
@@ -240,7 +240,7 @@ export class TerrainManager {
     ctx.save();
 
     // Water body
-    ctx.strokeStyle = 'rgba(60, 140, 220, 0.35)';
+    ctx.strokeStyle = 'rgba(40, 120, 210, 0.7)';  // 河流更明显
     ctx.lineWidth = riverWidth;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -250,7 +250,7 @@ export class TerrainManager {
     ctx.stroke();
 
     // Lighter center
-    ctx.strokeStyle = 'rgba(100, 180, 240, 0.25)';
+    ctx.strokeStyle = 'rgba(80, 160, 230, 0.5)';  // 河流高光更明显
     ctx.lineWidth = riverWidth * 0.5;
     ctx.beginPath();
     ctx.moveTo(cp.p0.x, cp.p0.y);
@@ -315,9 +315,12 @@ export class TerrainManager {
       const cy = (bush.gridY + bush.height / 2) * cs;
       for (const circle of bush.circles) {
         ctx.fillStyle = circle.color;
+        ctx.strokeStyle = 'rgba(0,50,0,0.4)';
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(cx + circle.ox, cy + circle.oy, circle.r, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
       }
       // Highlight on top circles
       for (const circle of bush.circles.slice(-2)) {
@@ -335,7 +338,7 @@ export class TerrainManager {
     this.crocodiles = this.crocodiles.filter(c => time - c.spawnTime < c.duration);
 
     // Spawn new croc every 10 seconds
-    if (time - this.lastCrocSpawn >= 10) {
+    if (time - this.lastCrocSpawn >= 6) {  // 每6秒出现一只鳄鱼
       this.lastCrocSpawn = time;
       // Pick random river cell
       const riverCells = Array.from(this.riverGridCells).map(s => {
