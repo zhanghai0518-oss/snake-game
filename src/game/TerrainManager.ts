@@ -36,6 +36,7 @@ export class TerrainManager {
   private config: GameConfig;
   private cellSize: number;
   private bushes: Bush[] = [];
+  private staticCanvas: OffscreenCanvas | null = null;  // 预渲染静态元素
   private riverPoints: RiverPoint[] = [];
   private riverGridCells: Set<string> = new Set();
   private crocodiles: Crocodile[] = [];
@@ -61,6 +62,8 @@ export class TerrainManager {
   }
 
   private generate(): void {
+    this.staticCanvas = null;
+    this.overlayCanvas = null;
     this.generateDirtTexture();
     this.generateRiver();
     this.generateBushes();
@@ -202,18 +205,41 @@ export class TerrainManager {
   render(ctx: CanvasRenderingContext2D, time: number): void {
     this.currentTime = time;
     this.updateCrocodiles(time);
-    this.renderDirtTexture(ctx);
-    this.renderDecorations(ctx);
+
+    // 预渲染静态元素到离屏canvas（只执行一次）
+    if (!this.staticCanvas) {
+      const w = this.config.gridWidth * this.cellSize;
+      const h = this.config.gridHeight * this.cellSize;
+      this.staticCanvas = new OffscreenCanvas(w, h);
+      const sctx = this.staticCanvas.getContext('2d')!;
+      this.renderDirtTexture(sctx);
+      this.renderDecorations(sctx);
+      this.renderBushBases(sctx);
+      this.renderBushTops(sctx);
+    }
+
+    // 绘制预渲染的静态层
+    ctx.drawImage(this.staticCanvas, 0, 0);
+
+    // 只有河流需要每帧动画
     this.renderRiver(ctx, time);
-    // Bush bases (shadow) + full bushes rendered in base layer too
-    this.renderBushBases(ctx);
-    this.renderBushTops(ctx);  // 底层也画灌木，确保可见
+
+    // 农夫需要每帧更新位置
     this.renderFarmer(ctx, time);
   }
 
-  renderOverlay(ctx: CanvasRenderingContext2D, time: number): void {
-    // Bush tops rendered on top of snake/animals for occlusion
-    this.renderBushTops(ctx);
+  private overlayCanvas: OffscreenCanvas | null = null;
+
+  renderOverlay(ctx: CanvasRenderingContext2D, _time: number): void {
+    // 预渲染灌木遮罩层（只执行一次）
+    if (!this.overlayCanvas) {
+      const w = this.config.gridWidth * this.cellSize;
+      const h = this.config.gridHeight * this.cellSize;
+      this.overlayCanvas = new OffscreenCanvas(w, h);
+      const octx = this.overlayCanvas.getContext('2d')!;
+      this.renderBushTops(octx);
+    }
+    ctx.drawImage(this.overlayCanvas, 0, 0);
   }
 
   private renderDirtTexture(ctx: CanvasRenderingContext2D): void {
@@ -224,7 +250,7 @@ export class TerrainManager {
         ? `rgba(255,255,200,${alpha})`
         : `rgba(100,70,30,${alpha})`;
       ctx.beginPath();
-      ctx.arc(patch.x, patch.y, 15 + Math.random() * 20, 0, Math.PI * 2);
+      ctx.arc(patch.x, patch.y, 15 + (patch.shade + 0.1) * 200, 0, Math.PI * 2);  // 用固定值代替random
       ctx.fill();
     }
   }
