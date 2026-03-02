@@ -19,6 +19,16 @@ interface Crocodile {
   gridY: number;
   spawnTime: number;
   duration: number;
+  // River swimming: t is position along bezier curve
+  riverT: number;
+  riverSpeed: number;
+  riverDirection: number;
+}
+
+export interface CrocodileCollisionResult {
+  hit: boolean;
+  /** 'damage' | 'immune' | 'eat' */
+  type?: 'damage' | 'immune' | 'eat';
 }
 
 interface Decoration {
@@ -44,11 +54,14 @@ export class TerrainManager {
   private dirtTexture: Array<{ x: number; y: number; shade: number }> = [];
   private lastCrocSpawn: number = -5;  // 首只鳄鱼5秒后出现
   private currentTime: number = 0;
+  private currentLevel: number = 1;
   
   // 农夫系统
   private farmerPos: Position;
   private farmerDir: number = 1;
   private farmerTimer: number = 0;
+  private farmerEnabled: boolean = false;
+  private riverEdgeCells: Position[] = [];
 
   // River bezier control points for rendering
   private riverCP: { p0: RiverPoint; p1: RiverPoint; p2: RiverPoint; p3: RiverPoint };
@@ -59,6 +72,7 @@ export class TerrainManager {
     this.riverCP = { p0: { x: 0, y: 0 }, p1: { x: 0, y: 0 }, p2: { x: 0, y: 0 }, p3: { x: 0, y: 0 } };
     this.farmerPos = { x: Math.floor(config.gridWidth / 2), y: 0 };
     this.generate();
+    this.computeRiverEdgeCells();
   }
 
   private generate(): void {
@@ -98,7 +112,7 @@ export class TerrainManager {
     };
 
     // Pre-compute river grid cells by sampling the bezier
-    const riverWidth = 2.5; // grid cells wide
+    const riverWidth = 4.5; // grid cells wide
     for (let t = 0; t <= 1; t += 0.005) {
       const pt = this.bezierPoint(t);
       const gx = Math.floor(pt.x / cs);
@@ -129,37 +143,38 @@ export class TerrainManager {
   private generateBushes(): void {
     const gw = this.config.gridWidth;
     const gh = this.config.gridHeight;
+    const cs = this.cellSize; // 30px
 
-    // 固定设计：1-2个长灌木(5-7格) + 2-3个短灌木(2-3格)
-    const bushConfigs: Array<{ minLen: number; maxLen: number }> = [
-      { minLen: 5, maxLen: 7 },  // 长灌木1
-      { minLen: 5, maxLen: 7 },  // 长灌木2（50%概率生成）
-      { minLen: 2, maxLen: 3 },  // 短灌木1
-      { minLen: 2, maxLen: 3 },  // 短灌木2
-      { minLen: 2, maxLen: 3 },  // 短灌木3（50%概率生成）
+    // 9条灌木：2长(~100×20px=3.3×0.67格) + 3中(~60×20px=2×0.67格) + 4短(~30×20px=1×0.67格)
+    const bushConfigs: Array<{ widthCells: number; heightCells: number }> = [
+      // 2条长灌木 (~100×20px → 3.3×0.67格，取4×1)
+      { widthCells: 4, heightCells: 1 },
+      { widthCells: 4, heightCells: 1 },
+      // 3条中灌木 (~60×20px → 2×0.67格，取2×1)
+      { widthCells: 2, heightCells: 1 },
+      { widthCells: 2, heightCells: 1 },
+      { widthCells: 2, heightCells: 1 },
+      // 4条短灌木 (~30×20px → 1×0.67格，取1×1)
+      { widthCells: 1, heightCells: 1 },
+      { widthCells: 1, heightCells: 1 },
+      { widthCells: 1, heightCells: 1 },
+      { widthCells: 1, heightCells: 1 },
     ];
 
-    for (let i = 0; i < bushConfigs.length; i++) {
-      // 第2个长灌木和第5个短灌木各50%概率
-      if ((i === 1 || i === 4) && Math.random() < 0.5) continue;
-
-      const cfg = bushConfigs[i];
-      const length = cfg.minLen + Math.floor(Math.random() * (cfg.maxLen - cfg.minLen + 1));
+    for (const cfg of bushConfigs) {
+      // 随机决定水平或垂直放置
       const isHorizontal = Math.random() > 0.5;
-      const w = isHorizontal ? length : 1;
-      const h = isHorizontal ? 1 : length;
+      const w = isHorizontal ? cfg.widthCells : cfg.heightCells;
+      const h = isHorizontal ? cfg.heightCells : cfg.widthCells;
 
-      // 短灌木优先放在河流边上
-      const preferRiverEdge = i >= 2;
       let gx: number, gy: number;
       let attempts = 0;
-      let overlapsRiver: boolean;
       let placed = false;
       do {
         gx = Math.floor(Math.random() * (gw - w));
         gy = Math.floor(Math.random() * (gh - h));
         // 检查灌木每一格都不在河里
-        overlapsRiver = false;
+        let overlapsRiver = false;
         for (let dx = 0; dx < w && !overlapsRiver; dx++) {
           for (let dy = 0; dy < h && !overlapsRiver; dy++) {
             if (this.isInRiver({ x: gx + dx, y: gy + dy })) {
@@ -167,43 +182,30 @@ export class TerrainManager {
             }
           }
         }
-        if (overlapsRiver) { attempts++; continue; }
-        // 短灌木检查是否靠近河流（至少一格相邻河流）
-        if (preferRiverEdge && attempts < 20) {
-          let nearRiver = false;
-          for (let dx = -1; dx <= w && !nearRiver; dx++) {
-            for (let dy = -1; dy <= h && !nearRiver; dy++) {
-              if (this.isInRiver({ x: gx + dx, y: gy + dy })) nearRiver = true;
-            }
-          }
-          if (!nearRiver) { attempts++; continue; }
+        if (!overlapsRiver) {
+          placed = true;
+          break;
         }
-        placed = true;
-        break;
       } while (++attempts < 30);
       if (!placed) continue;
 
-      const finalW = w;
-      const finalH = h;
-
-      // 沿着长条方向排列椭圆形灌木丛
+      // 生成装饰圆
       const circles: Bush['circles'] = [];
       const greens = ['#1a8c0e', '#22aa15', '#158a08', '#2ebc1e', '#0d7a05'];
-      const numCircles = (finalW + finalH) * 2 + 3; // 更多圆形填满长条
+      const numCircles = (w + h) * 2 + 3;
 
       for (let c = 0; c < numCircles; c++) {
-        // 沿长条方向分布，有轻微随机偏移
-        const along = (c / numCircles) - 0.5; // -0.5 to 0.5
+        const along = (c / numCircles) - 0.5;
         const cross = (Math.random() - 0.5) * 0.6;
         circles.push({
-          ox: (isHorizontal ? along : cross) * finalW * this.cellSize,
-          oy: (isHorizontal ? cross : along) * finalH * this.cellSize,
-          r: this.cellSize * (0.4 + Math.random() * 0.35),
+          ox: (isHorizontal ? along : cross) * w * cs,
+          oy: (isHorizontal ? cross : along) * h * cs,
+          r: cs * (0.4 + Math.random() * 0.35),
           color: greens[Math.floor(Math.random() * greens.length)],
         });
       }
 
-      this.bushes.push({ gridX: gx, gridY: gy, width: finalW, height: finalH, circles });
+      this.bushes.push({ gridX: gx, gridY: gy, width: w, height: h, circles });
     }
   }
 
@@ -225,6 +227,66 @@ export class TerrainManager {
         size: 1.5 + Math.random() * 2,
       });
     }
+  }
+
+  private computeRiverEdgeCells(): void {
+    this.riverEdgeCells = [];
+    const gw = this.config.gridWidth;
+    const gh = this.config.gridHeight;
+    for (let x = 0; x < gw; x++) {
+      for (let y = 0; y < gh; y++) {
+        if (this.riverGridCells.has(`${x},${y}`)) continue;
+        // Check if adjacent to river
+        const adjacent = [
+          { x: x - 1, y }, { x: x + 1, y },
+          { x, y: y - 1 }, { x, y: y + 1 },
+        ];
+        for (const a of adjacent) {
+          if (this.riverGridCells.has(`${a.x},${a.y}`)) {
+            this.riverEdgeCells.push({ x, y });
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  /** Set current level for crocodile duration scaling */
+  setLevel(level: number): void {
+    this.currentLevel = level;
+  }
+
+  setFarmerEnabled(enabled: boolean): void {
+    this.farmerEnabled = enabled;
+    if (enabled && this.riverEdgeCells.length > 0) {
+      // Place farmer on a river edge cell
+      const cell = this.riverEdgeCells[Math.floor(Math.random() * this.riverEdgeCells.length)];
+      this.farmerPos = { ...cell };
+    }
+  }
+
+  /** Expose bezier point calculation for BossManager */
+  getBezierPoint(t: number): { x: number; y: number } {
+    return this.bezierPoint(t);
+  }
+
+  /** Check crocodile collision with snake length awareness */
+  checkCrocodileCollision(pos: Position, snakeLength: number): CrocodileCollisionResult {
+    for (const croc of this.crocodiles) {
+      const elapsed = this.currentTime - croc.spawnTime;
+      if (elapsed >= 0 && elapsed < croc.duration && croc.gridX === pos.x && croc.gridY === pos.y) {
+        if (snakeLength > 20) {
+          // Remove the crocodile
+          croc.duration = 0; // mark as expired
+          return { hit: true, type: 'eat' };
+        } else if (snakeLength > 15) {
+          return { hit: true, type: 'immune' };
+        } else {
+          return { hit: true, type: 'damage' };
+        }
+      }
+    }
+    return { hit: false };
   }
 
   // ==================== Render ====================
@@ -314,7 +376,7 @@ export class TerrainManager {
   private renderRiver(ctx: CanvasRenderingContext2D, time: number): void {
     const cp = this.riverCP;
     const cs = this.cellSize;
-    const riverWidth = 2.5 * cs;
+    const riverWidth = 4.5 * cs;
 
     ctx.save();
 
@@ -487,26 +549,41 @@ export class TerrainManager {
 
 
   private updateCrocodiles(time: number): void {
+    // Only spawn crocs from level 3+
+    if (this.currentLevel < 3) {
+      this.crocodiles = [];
+      return;
+    }
+
     // Remove expired crocs
     this.crocodiles = this.crocodiles.filter(c => time - c.spawnTime < c.duration);
 
-    // Spawn new croc every 10 seconds
-    if (time - this.lastCrocSpawn >= 6) {  // 每6秒出现一只鳄鱼
+    // Update swimming crocs along river bezier
+    for (const croc of this.crocodiles) {
+      croc.riverT += croc.riverSpeed * croc.riverDirection * 0.016; // ~60fps
+      if (croc.riverT > 0.95) { croc.riverT = 0.95; croc.riverDirection = -1; }
+      if (croc.riverT < 0.05) { croc.riverT = 0.05; croc.riverDirection = 1; }
+      const pt = this.bezierPoint(croc.riverT);
+      croc.gridX = Math.floor(pt.x / this.cellSize);
+      croc.gridY = Math.floor(pt.y / this.cellSize);
+    }
+
+    // Crocodile duration: 10s base + 5s per level above 3
+    const crocDuration = 10 + (this.currentLevel - 3) * 5;
+
+    // Spawn new croc every 8 seconds
+    if (time - this.lastCrocSpawn >= 8) {
       this.lastCrocSpawn = time;
-      // Pick random river cell
-      const riverCells = Array.from(this.riverGridCells).map(s => {
-        const [x, y] = s.split(',').map(Number);
-        return { x, y };
+      const startT = 0.1 + Math.random() * 0.8;
+      this.crocodiles.push({
+        gridX: 0,
+        gridY: 0,
+        spawnTime: time,
+        duration: crocDuration,
+        riverT: startT,
+        riverSpeed: 0.03 + Math.random() * 0.02,
+        riverDirection: Math.random() > 0.5 ? 1 : -1,
       });
-      if (riverCells.length > 0) {
-        const cell = riverCells[Math.floor(Math.random() * riverCells.length)];
-        this.crocodiles.push({
-          gridX: cell.x,
-          gridY: cell.y,
-          spawnTime: time,
-          duration: 3,
-        });
-      }
     }
   }
 

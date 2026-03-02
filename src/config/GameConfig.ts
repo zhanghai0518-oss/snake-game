@@ -4,14 +4,16 @@ export interface GameConfig {
   cellSize: number;
   baseSpeed: number;
   wallCollision: boolean;
+  wallKill: boolean;
   gameMode: 'classic' | 'speed' | 'battle' | 'maze' | 'timeTrial' | 'survival';
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
-  gridWidth: 12,
-  gridHeight: 12,
-  cellSize: 50,
+  gridWidth: 20,
+  gridHeight: 20,
+  cellSize: 30,
   baseSpeed: 500,
   wallCollision: true,
+  wallKill: true,
   gameMode: 'classic',
 };

@@ -168,15 +168,12 @@ export class Game {
       }
     }
 
-    // 农夫碰撞 — 蛇碰到农夫减3节（农夫用锄头打蛇！）
+    // 农夫碰撞 — 蛇碰到农夫直接游戏结束
     if (this.terrain.hasFarmer(this.snake.head)) {
-      this.snake.grow(-3);
       this.renderer.triggerHurt();
       this.sound.play('die');
-      if (this.snake.length <= 1) {
-        this.gameOver();
-        return;
-      }
+      this.gameOver();
+      return;
     }
 
     // Check animal collision
@@ -219,20 +216,19 @@ export class Game {
     // Legacy food removed — AnimalManager handles all collisions above
 
     // Check wall collision
-    if (this.config.wallCollision && !this.buffSystem.has(BuffType.GHOST) && this.snake.hitsWall()) {
-      this.gameOver();
-      return;
+    if (this.snake.hitsWall()) {
+      if (this.config.wallKill && !this.buffSystem.has(BuffType.GHOST)) {
+        this.gameOver();
+        return;
+      } else {
+        this.snake.wrapAround();
+      }
     }
 
     // Check self collision (invincible ignores)
     if (!this.buffSystem.has(BuffType.INVINCIBLE) && this.snake.hitsSelf()) {
       this.gameOver();
       return;
-    }
-
-    // Wrap around if no wall collision
-    if (!this.config.wallCollision) {
-      this.snake.wrapAround();
     }
   }
 

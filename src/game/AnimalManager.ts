@@ -173,7 +173,7 @@ export interface CollisionResult {
 const ANIMAL_UNLOCK_STAGES: { minScore: number; types: AnimalType[] }[] = [
   { minScore: 0,   types: [AnimalType.MOUSE] },                                    // 开局只有老鼠
   { minScore: 15,  types: [AnimalType.BIRD_EGG] },                                 // 15分解锁鸟蛋
-  { minScore: 30,  types: [AnimalType.FROG, AnimalType.SNAKE_EGG] },               // 30分解锁青蛙和蛇蛋
+  { minScore: 30,  types: [AnimalType.FROG] },               // 30分解锁青蛙和蛇蛋
   { minScore: 50,  types: [AnimalType.RABBIT, AnimalType.HEDGEHOG] },              // 50分解锁兔子和刺猬
   { minScore: 80,  types: [AnimalType.EAGLE, AnimalType.DIAMOND, AnimalType.ICE] },// 80分解锁老鹰和道具
   { minScore: 120, types: [AnimalType.POISON_FROG, AnimalType.MAGNET, AnimalType.FIRE, AnimalType.GHOST] }, // 120分全部解锁
