@@ -2,15 +2,38 @@
   "name": "snake-battle",
   "version": "1.0.0",
   "description": "贪吃蛇大作战 - 多平台贪吃蛇游戏",
-  "main": "dist/index.js",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "build:wechat": "tsc && node scripts/build-wechat.js",
-    "build:steam": "tsc && vite build && electron-builder",
+    "electron:dev": "vite build && electron .",
+    "electron:build:win": "vite build && electron-builder --win",
+    "electron:build:mac": "vite build && electron-builder --mac",
+    "electron:build:linux": "vite build && electron-builder --linux",
     "test": "vitest",
     "lint": "eslint src/ --ext .ts",
     "preview": "vite preview"
+  },
+  "build": {
+    "appId": "com.snakebattle.game",
+    "productName": "贪吃蛇大作战",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   },
   "keywords": [
     "snake",
@@ -21,6 +44,8 @@
   "author": "zhanghai0518",
   "license": "MIT",
   "devDependencies": {
+    "electron": "^40.6.1",
+    "electron-builder": "^26.8.1",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.0.18"
