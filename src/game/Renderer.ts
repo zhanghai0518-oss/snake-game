@@ -108,16 +108,13 @@ export class Renderer {
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
 
-    // 草地绿色渐变背景
+    // 温暖土黄色渐变背景
     const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, '#4a8c3f');
-    grad.addColorStop(0.5, '#3d7a35');
-    grad.addColorStop(1, '#357030');
+    grad.addColorStop(0, '#d4b876');
+    grad.addColorStop(0.5, '#c4a265');
+    grad.addColorStop(1, '#b89555');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
-
-    // 画背景装饰（小花小草）
-    this.drawDecorations(ctx);
   }
 
   private drawDecorations(ctx: CanvasRenderingContext2D): void {
@@ -167,9 +164,10 @@ export class Renderer {
     const gw = this.config.gridWidth * this.cellSize;
     const gh = this.config.gridHeight * this.cellSize;
 
-    // 淡绿半透明网格线
-    ctx.strokeStyle = 'rgba(100, 180, 80, 0.15)';
+    // 淡棕色虚线网格
+    ctx.strokeStyle = 'rgba(139, 110, 70, 0.12)';
     ctx.lineWidth = 0.5;
+    ctx.setLineDash([3, 5]);
     for (let x = 0; x <= this.config.gridWidth; x++) {
       ctx.beginPath();
       ctx.moveTo(x * this.cellSize, 0);
@@ -182,6 +180,7 @@ export class Renderer {
       ctx.lineTo(gw, y * this.cellSize);
       ctx.stroke();
     }
+    ctx.setLineDash([]);
 
     // 木栅栏边框
     this.drawFence(ctx, gw, gh);

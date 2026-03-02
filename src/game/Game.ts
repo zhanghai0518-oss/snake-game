@@ -7,6 +7,7 @@ import { InputManager } from './InputManager';
 import { Renderer } from './Renderer';
 import { ScoreManager } from './ScoreManager';
 import { SoundManager } from '../utils/SoundManager';
+import { TerrainManager } from './TerrainManager';
 
 export enum GameState {
   MENU = 'menu',
@@ -35,6 +36,9 @@ export class Game {
   private buffSystem: BuffSystem;
   private poisonTimer: number = 0;
 
+  // Terrain system
+  private terrain: TerrainManager;
+
   constructor(canvas: HTMLCanvasElement, config: Partial<GameConfig> = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -46,6 +50,7 @@ export class Game {
     this.sound = new SoundManager();
     this.animalManager = new AnimalManager(this.config);
     this.buffSystem = new BuffSystem();
+    this.terrain = new TerrainManager(this.config);
     
     this.setupEventListeners();
   }
@@ -92,11 +97,13 @@ export class Game {
     }
 
     // Fixed timestep game logic
+    // River slows snake down
+    const terrainMultiplier = this.terrain.getSpeedMultiplier(this.snake.head);
     const effectiveSpeed = this.buffSystem.has(BuffType.STUN)
       ? Infinity
-      : this.buffSystem.has(BuffType.SPEED_BOOST)
+      : (this.buffSystem.has(BuffType.SPEED_BOOST)
         ? this.gameSpeed * 0.6
-        : this.gameSpeed;
+        : this.gameSpeed) / terrainMultiplier;
 
     while (this.accumulator >= effectiveSpeed) {
       this.update();
@@ -120,9 +127,26 @@ export class Game {
       this.snake.wrapAround();
     }
 
+    // Crocodile damage in river
+    if (this.terrain.hasCrocodile(this.snake.head)) {
+      this.snake.grow(-2);
+      this.renderer.triggerHurt();
+      this.sound.play('die');
+      if (this.snake.length <= 1) {
+        this.gameOver();
+        return;
+      }
+    }
+
     // Check animal collision
+    const inBush = this.terrain.isInBush(this.snake.head);
     const result = this.animalManager.checkCollision(this.snake.head, this.buffSystem);
     if (result) {
+      // In bush: immune to eagle (predator) damage
+      if (inBush && result.animal.def.category === 'predator') {
+        result.growAmount = 0;
+        result.points = 0;
+      }
       if (result.growAmount !== 0) {
         this.snake.grow(result.growAmount);
       }
@@ -162,15 +186,43 @@ export class Game {
   }
 
   private render(): void {
+    const renderTime = this.lastTime / 1000;
+
     this.renderer.clear();
     this.renderer.drawGrid();
 
-    // Draw animals
+    // Terrain base layer (ground texture, river, bush shadows, decorations)
+    this.terrain.render(this.ctx, renderTime);
+
+    // Draw animals (with bush opacity)
+    const bushes = this.terrain.getBushes();
     for (const animal of this.animalManager.getAnimals()) {
+      this.ctx.save();
+      // Check if animal is in a bush - reduce opacity
+      for (const bush of bushes) {
+        if (
+          animal.position.x >= bush.gridX && animal.position.x < bush.gridX + bush.width &&
+          animal.position.y >= bush.gridY && animal.position.y < bush.gridY + bush.height
+        ) {
+          this.ctx.globalAlpha = 0.4;
+          break;
+        }
+      }
       this.renderer.drawAnimal(animal);
+      this.ctx.restore();
     }
 
+    // Draw snake (with bush/river opacity)
+    this.ctx.save();
+    if (this.terrain.isInBush(this.snake.head)) {
+      this.ctx.globalAlpha = 0.4;
+    }
     this.renderer.drawSnake(this.snake);
+    this.ctx.restore();
+
+    // Bush overlay (on top of snake/animals for occlusion)
+    this.terrain.renderOverlay(this.ctx, renderTime);
+
     this.renderer.drawUI(this.score.current, this.score.high, this.state);
     
     // Draw active buffs
@@ -213,6 +265,7 @@ export class Game {
     this.animalManager.reset();
     this.buffSystem.clear();
     this.poisonTimer = 0;
+    this.terrain = new TerrainManager(this.config);
     this.start();
   }
 
