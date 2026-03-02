@@ -336,117 +336,103 @@ export class TerrainManager {
 
   private renderBushTops(ctx: CanvasRenderingContext2D): void {
     const cs = this.cellSize;
-    ctx.save();
     for (const bush of this.bushes) {
       const bx = bush.gridX * cs;
       const by = bush.gridY * cs;
       const bw = bush.width * cs;
-      const bh = bush.height * cs;
-      const centerX = bx + bw / 2;
-      const centerY = by + bh / 2;
+      const bh = Math.max(bush.height * cs, cs); // 最小1格高
 
-      // ===== 底部阴影 =====
-      ctx.fillStyle = 'rgba(0,40,0,0.25)';
+      // ===== 地面阴影 =====
+      ctx.fillStyle = 'rgba(0,30,0,0.3)';
       ctx.beginPath();
-      ctx.ellipse(centerX, centerY + bh * 0.15, bw * 0.55, bh * 0.35, 0, 0, Math.PI * 2);
+      ctx.ellipse(bx + bw/2, by + bh + cs*0.1, bw*0.5 + cs*0.1, cs*0.12, 0, 0, Math.PI*2);
       ctx.fill();
 
-      // ===== 树干/根部（棕色底部） =====
-      ctx.fillStyle = '#5a3a1a';
-      const trunkCount = Math.max(2, Math.floor(bw / cs));
-      for (let t = 0; t < trunkCount; t++) {
-        const tx = bx + (t + 0.5) * (bw / trunkCount);
+      // ===== 灌木主体：用多个大椭圆沿长条排列 =====
+      // 深绿底层
+      ctx.fillStyle = '#0a5500';
+      const segments = Math.max(2, Math.ceil(Math.max(bw, bh) / cs));
+      const isWide = bw >= bh;
+      
+      for (let s = 0; s < segments; s++) {
+        const t = (s + 0.5) / segments;
+        const sx = isWide ? bx + t * bw : bx + bw/2;
+        const sy = isWide ? by + bh/2 : by + t * bh;
+        const rx = isWide ? cs * 0.55 : cs * 0.45;
+        const ry = isWide ? cs * 0.45 : cs * 0.55;
         ctx.beginPath();
-        ctx.roundRect(tx - cs * 0.04, centerY + bh * 0.05, cs * 0.08, bh * 0.25, 2);
+        ctx.ellipse(sx, sy + cs*0.05, rx, ry, 0, 0, Math.PI*2);
         ctx.fill();
       }
 
-      // ===== 主体灌木叶（多层绿色，自然凹凸轮廓） =====
-      // 用多个不同大小的弧形堆叠，模拟灌木丛顶部的凹凸不平
-      const leafLayers = [
-        { color: '#0d5a08', offsetY: 0.05 },    // 最底层深绿
-        { color: '#158a0c', offsetY: 0 },         // 中层绿
-        { color: '#1da012', offsetY: -0.05 },     // 上层亮绿
-      ];
-
-      for (const layer of leafLayers) {
-        ctx.fillStyle = layer.color;
+      // 中绿主层
+      ctx.fillStyle = '#15850c';
+      for (let s = 0; s < segments; s++) {
+        const t = (s + 0.5) / segments;
+        const sx = isWide ? bx + t * bw : bx + bw/2;
+        const sy = isWide ? by + bh/2 : by + t * bh;
+        const rx = isWide ? cs * 0.5 : cs * 0.4;
+        const ry = isWide ? cs * 0.4 : cs * 0.5;
+        // 每段高度略有不同，像灌木顶部凹凸
+        const heightVar = Math.sin(s * 2.3) * cs * 0.06;
         ctx.beginPath();
-
-        // 画自然的波浪形顶部轮廓
-        const numBumps = Math.max(3, Math.floor(bw / cs) * 2 + 1);
-        const startX = bx - cs * 0.1;
-        const endX = bx + bw + cs * 0.1;
-
-        // 底部直线
-        ctx.moveTo(startX, centerY + bh * 0.2);
-
-        // 顶部波浪形
-        for (let b = 0; b <= numBumps; b++) {
-          const t = b / numBumps;
-          const px = startX + t * (endX - startX);
-          // 每个bump高度随机，用sin+随机创造自然感
-          const bumpHeight = bh * (0.3 + bush.circles[b % bush.circles.length].r / cs * 0.2);
-          const py = centerY - bumpHeight + layer.offsetY * cs;
-          
-          if (b === 0) {
-            ctx.lineTo(startX, py);
-          } else {
-            const cpx = startX + (t - 0.5 / numBumps) * (endX - startX);
-            ctx.quadraticCurveTo(cpx, py - bh * 0.1, px, py);
-          }
-        }
-
-        // 右侧和底部闭合
-        ctx.lineTo(endX, centerY + bh * 0.2);
-        ctx.closePath();
+        ctx.ellipse(sx, sy + heightVar, rx, ry, 0, 0, Math.PI*2);
         ctx.fill();
       }
 
-      // ===== 深色描边轮廓 =====
+      // 亮绿高光层
+      ctx.fillStyle = '#22aa15';
+      for (let s = 0; s < segments; s++) {
+        const t = (s + 0.5) / segments;
+        const sx = isWide ? bx + t * bw : bx + bw/2;
+        const sy = isWide ? by + bh/2 : by + t * bh;
+        const rx = isWide ? cs * 0.35 : cs * 0.28;
+        const ry = isWide ? cs * 0.28 : cs * 0.35;
+        const heightVar = Math.sin(s * 2.3) * cs * 0.06;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy - cs*0.08 + heightVar, rx, ry, 0, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // ===== 叶片纹理 =====
+      const leafCount = segments * 3;
+      for (let j = 0; j < leafCount; j++) {
+        const t = Math.random();
+        const lx = isWide ? bx + t * bw : bx + bw/2 + (Math.random()-0.5) * cs * 0.5;
+        const ly = isWide ? by + bh/2 + (Math.random()-0.5) * cs * 0.5 : by + t * bh;
+        ctx.fillStyle = j % 2 === 0 ? '#33cc22' : '#1d9914';
+        ctx.beginPath();
+        ctx.ellipse(lx, ly, cs*0.08, cs*0.04, Math.random()*Math.PI, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // ===== 深色描边 =====
       ctx.strokeStyle = '#063d03';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      const numBumps = Math.max(3, Math.floor(bw / cs) * 2 + 1);
-      const startX = bx - cs * 0.1;
-      const endX = bx + bw + cs * 0.1;
-      ctx.moveTo(startX, centerY + bh * 0.2);
-      for (let b = 0; b <= numBumps; b++) {
-        const t = b / numBumps;
-        const px = startX + t * (endX - startX);
-        const bumpHeight = bh * (0.3 + bush.circles[b % bush.circles.length].r / cs * 0.2);
-        const py = centerY - bumpHeight - 0.05 * cs;
-        if (b === 0) {
-          ctx.lineTo(startX, py);
-        } else {
-          const cpx = startX + (t - 0.5 / numBumps) * (endX - startX);
-          ctx.quadraticCurveTo(cpx, py - bh * 0.1, px, py);
-        }
-      }
-      ctx.lineTo(endX, centerY + bh * 0.2);
-      ctx.closePath();
-      ctx.stroke();
-
-      // ===== 叶片细节（小椭圆散布在表面） =====
-      const leafColors = ['#22bb18', '#2ecc1e', '#18aa0d', '#35dd28'];
-      for (let j = 0; j < bw / cs * 5; j++) {
-        ctx.fillStyle = leafColors[j % leafColors.length];
-        const lx = bx + Math.random() * bw;
-        const ly = centerY - bh * 0.15 + (Math.random() - 0.5) * bh * 0.4;
-        const angle = Math.random() * Math.PI;
+      ctx.lineWidth = 2.5;
+      for (let s = 0; s < segments; s++) {
+        const t = (s + 0.5) / segments;
+        const sx = isWide ? bx + t * bw : bx + bw/2;
+        const sy = isWide ? by + bh/2 : by + t * bh;
+        const rx = isWide ? cs * 0.52 : cs * 0.42;
+        const ry = isWide ? cs * 0.42 : cs * 0.52;
         ctx.beginPath();
-        ctx.ellipse(lx, ly, cs * 0.1, cs * 0.05, angle, 0, Math.PI * 2);
+        ctx.ellipse(sx, sy, rx, ry, 0, 0, Math.PI*2);
+        ctx.stroke();
+      }
+
+      // ===== 小高光点 =====
+      ctx.fillStyle = 'rgba(200,255,180,0.3)';
+      for (let s = 0; s < segments; s++) {
+        const t = (s + 0.5) / segments;
+        const sx = isWide ? bx + t * bw : bx + bw/2;
+        const sy = isWide ? by + bh/2 : by + t * bh;
+        ctx.beginPath();
+        ctx.arc(sx - cs*0.1, sy - cs*0.15, cs*0.1, 0, Math.PI*2);
         ctx.fill();
       }
-
-      // ===== 高光反射 =====
-      ctx.fillStyle = 'rgba(180,255,150,0.15)';
-      ctx.beginPath();
-      ctx.ellipse(centerX - bw * 0.1, centerY - bh * 0.2, bw * 0.35, bh * 0.15, -0.2, 0, Math.PI * 2);
-      ctx.fill();
     }
-    ctx.restore();
   }
+
 
   private updateCrocodiles(time: number): void {
     // Remove expired crocs
