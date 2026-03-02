@@ -329,46 +329,112 @@ export class TerrainManager {
     const cs = this.cellSize;
     ctx.save();
     for (const bush of this.bushes) {
-      const cx = (bush.gridX + bush.width / 2) * cs;
-      const cy = (bush.gridY + bush.height / 2) * cs;
+      const bx = bush.gridX * cs;
+      const by = bush.gridY * cs;
+      const bw = bush.width * cs;
+      const bh = bush.height * cs;
+      const centerX = bx + bw / 2;
+      const centerY = by + bh / 2;
 
-      // 底层深色（阴影层）
-      for (const circle of bush.circles) {
-        ctx.fillStyle = '#0a5500';
+      // ===== 底部阴影 =====
+      ctx.fillStyle = 'rgba(0,40,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY + bh * 0.15, bw * 0.55, bh * 0.35, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ===== 树干/根部（棕色底部） =====
+      ctx.fillStyle = '#5a3a1a';
+      const trunkCount = Math.max(2, Math.floor(bw / cs));
+      for (let t = 0; t < trunkCount; t++) {
+        const tx = bx + (t + 0.5) * (bw / trunkCount);
         ctx.beginPath();
-        ctx.arc(cx + circle.ox, cy + circle.oy + 3, circle.r, 0, Math.PI * 2);
+        ctx.roundRect(tx - cs * 0.04, centerY + bh * 0.05, cs * 0.08, bh * 0.25, 2);
         ctx.fill();
       }
 
-      // 主体灌木丛
-      for (const circle of bush.circles) {
-        ctx.fillStyle = circle.color;
+      // ===== 主体灌木叶（多层绿色，自然凹凸轮廓） =====
+      // 用多个不同大小的弧形堆叠，模拟灌木丛顶部的凹凸不平
+      const leafLayers = [
+        { color: '#0d5a08', offsetY: 0.05 },    // 最底层深绿
+        { color: '#158a0c', offsetY: 0 },         // 中层绿
+        { color: '#1da012', offsetY: -0.05 },     // 上层亮绿
+      ];
+
+      for (const layer of leafLayers) {
+        ctx.fillStyle = layer.color;
         ctx.beginPath();
-        ctx.arc(cx + circle.ox, cy + circle.oy, circle.r, 0, Math.PI * 2);
+
+        // 画自然的波浪形顶部轮廓
+        const numBumps = Math.max(3, Math.floor(bw / cs) * 2 + 1);
+        const startX = bx - cs * 0.1;
+        const endX = bx + bw + cs * 0.1;
+
+        // 底部直线
+        ctx.moveTo(startX, centerY + bh * 0.2);
+
+        // 顶部波浪形
+        for (let b = 0; b <= numBumps; b++) {
+          const t = b / numBumps;
+          const px = startX + t * (endX - startX);
+          // 每个bump高度随机，用sin+随机创造自然感
+          const bumpHeight = bh * (0.3 + bush.circles[b % bush.circles.length].r / cs * 0.2);
+          const py = centerY - bumpHeight + layer.offsetY * cs;
+          
+          if (b === 0) {
+            ctx.lineTo(startX, py);
+          } else {
+            const cpx = startX + (t - 0.5 / numBumps) * (endX - startX);
+            ctx.quadraticCurveTo(cpx, py - bh * 0.1, px, py);
+          }
+        }
+
+        // 右侧和底部闭合
+        ctx.lineTo(endX, centerY + bh * 0.2);
+        ctx.closePath();
         ctx.fill();
-        // 深色描边
-        ctx.strokeStyle = '#0a5500';
-        ctx.lineWidth = 2;
-        ctx.stroke();
       }
 
-      // 顶部高光叶片
-      for (const circle of bush.circles) {
-        ctx.fillStyle = 'rgba(120,220,80,0.4)';
+      // ===== 深色描边轮廓 =====
+      ctx.strokeStyle = '#063d03';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const numBumps = Math.max(3, Math.floor(bw / cs) * 2 + 1);
+      const startX = bx - cs * 0.1;
+      const endX = bx + bw + cs * 0.1;
+      ctx.moveTo(startX, centerY + bh * 0.2);
+      for (let b = 0; b <= numBumps; b++) {
+        const t = b / numBumps;
+        const px = startX + t * (endX - startX);
+        const bumpHeight = bh * (0.3 + bush.circles[b % bush.circles.length].r / cs * 0.2);
+        const py = centerY - bumpHeight - 0.05 * cs;
+        if (b === 0) {
+          ctx.lineTo(startX, py);
+        } else {
+          const cpx = startX + (t - 0.5 / numBumps) * (endX - startX);
+          ctx.quadraticCurveTo(cpx, py - bh * 0.1, px, py);
+        }
+      }
+      ctx.lineTo(endX, centerY + bh * 0.2);
+      ctx.closePath();
+      ctx.stroke();
+
+      // ===== 叶片细节（小椭圆散布在表面） =====
+      const leafColors = ['#22bb18', '#2ecc1e', '#18aa0d', '#35dd28'];
+      for (let j = 0; j < bw / cs * 5; j++) {
+        ctx.fillStyle = leafColors[j % leafColors.length];
+        const lx = bx + Math.random() * bw;
+        const ly = centerY - bh * 0.15 + (Math.random() - 0.5) * bh * 0.4;
+        const angle = Math.random() * Math.PI;
         ctx.beginPath();
-        ctx.arc(cx + circle.ox - circle.r * 0.2, cy + circle.oy - circle.r * 0.25, circle.r * 0.45, 0, Math.PI * 2);
+        ctx.ellipse(lx, ly, cs * 0.1, cs * 0.05, angle, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // 小叶子细节点缀
-      ctx.fillStyle = '#33cc22';
-      for (let j = 0; j < 4; j++) {
-        const lx = cx + (Math.random() - 0.5) * bush.width * cs * 0.7;
-        const ly = cy + (Math.random() - 0.5) * bush.height * cs * 0.5;
-        ctx.beginPath();
-        ctx.ellipse(lx, ly, cs * 0.08, cs * 0.04, Math.random() * Math.PI, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      // ===== 高光反射 =====
+      ctx.fillStyle = 'rgba(180,255,150,0.15)';
+      ctx.beginPath();
+      ctx.ellipse(centerX - bw * 0.1, centerY - bh * 0.2, bw * 0.35, bh * 0.15, -0.2, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
   }
