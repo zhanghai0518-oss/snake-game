@@ -9,7 +9,7 @@ export enum AnimalType {
   FROG = 'frog',
   RABBIT = 'rabbit',
   SNAKE_EGG = 'snake_egg',
-  CRICKET = 'cricket',
+  BIRD_EGG = 'bird_egg',
   EAGLE = 'eagle',
   HEDGEHOG = 'hedgehog',
   POISON_FROG = 'poison_frog',
@@ -34,7 +34,7 @@ const ANIMAL_DEFS: AnimalDef[] = [
   { type: AnimalType.FROG,        category: 'prey',     emoji: '🐸', probability: 0.15, growAmount: 2, points: 20 },
   { type: AnimalType.RABBIT,      category: 'prey',     emoji: '🐰', probability: 0.08, growAmount: 3, points: 30 },
   { type: AnimalType.SNAKE_EGG,   category: 'prey',     emoji: '🥚', probability: 0.10, growAmount: 1, points: 15 },
-  { type: AnimalType.CRICKET,     category: 'prey',     emoji: '🦗', probability: 0.12, growAmount: 1, points: 10 },
+  { type: AnimalType.BIRD_EGG,    category: 'prey',     emoji: '🪺', probability: 0.12, growAmount: 1, points: 15 },
   { type: AnimalType.EAGLE,       category: 'predator', emoji: '🦅', probability: 0.05, growAmount: -3, points: 0 },
   { type: AnimalType.HEDGEHOG,    category: 'predator', emoji: '🦔', probability: 0.08, growAmount: -2, points: 0 },
   { type: AnimalType.POISON_FROG, category: 'predator', emoji: '🐸', probability: 0.05, growAmount: 0, points: 0 },
@@ -112,11 +112,8 @@ export class Animal {
         break;
       }
 
-      case AnimalType.CRICKET:
-        if (this.aiTimer >= 300) {
-          this.aiTimer = 0;
-          this.moveRandom();
-        }
+      case AnimalType.BIRD_EGG:
+        // 鸟蛋静止不动
         break;
 
       case AnimalType.EAGLE:
@@ -172,11 +169,22 @@ export interface CollisionResult {
   buffDurationMs?: number;
 }
 
+// 动物解锁阶段：score阈值 → 解锁的动物类型
+const ANIMAL_UNLOCK_STAGES: { minScore: number; types: AnimalType[] }[] = [
+  { minScore: 0,   types: [AnimalType.MOUSE] },                                    // 开局只有老鼠
+  { minScore: 15,  types: [AnimalType.BIRD_EGG] },                                 // 15分解锁鸟蛋
+  { minScore: 30,  types: [AnimalType.FROG, AnimalType.SNAKE_EGG] },               // 30分解锁青蛙和蛇蛋
+  { minScore: 50,  types: [AnimalType.RABBIT, AnimalType.HEDGEHOG] },              // 50分解锁兔子和刺猬
+  { minScore: 80,  types: [AnimalType.EAGLE, AnimalType.DIAMOND, AnimalType.ICE] },// 80分解锁老鹰和道具
+  { minScore: 120, types: [AnimalType.POISON_FROG, AnimalType.MAGNET, AnimalType.FIRE, AnimalType.GHOST] }, // 120分全部解锁
+];
+
 export class AnimalManager {
   private animals: Animal[] = [];
   private config: GameConfig;
-  private maxAnimals: number = 8;
+  private maxAnimals: number = 4;  // 初始少量，逐步增加
   private snakeEggStreak: number = 0;
+  private currentScore: number = 0;
 
   constructor(config: GameConfig) {
     this.config = config;
@@ -186,7 +194,10 @@ export class AnimalManager {
     return this.animals;
   }
 
-  update(deltaMs: number, snakeHead: Position, snakeBody: Position[], buffSystem: BuffSystem): void {
+  update(deltaMs: number, snakeHead: Position, snakeBody: Position[], buffSystem: BuffSystem, score: number = 0): void {
+    this.currentScore = score;
+    // 根据分数逐步增加场上动物数量：0分4只，50分5只，100分6只，150分7只，200分8只
+    this.maxAnimals = Math.min(8, 4 + Math.floor(score / 50));
     const frozen = buffSystem.has(BuffType.FREEZE_ENEMIES);
 
     for (const animal of this.animals) {
@@ -254,9 +265,8 @@ export class AnimalManager {
           this.snakeEggStreak = 0;
         }
         break;
-      case AnimalType.CRICKET:
-        result.buffType = BuffType.SPEED_BOOST;
-        result.buffDurationMs = 3000;
+      case AnimalType.BIRD_EGG:
+        // 鸟蛋：普通食物，无特殊效果
         break;
       case AnimalType.HEDGEHOG:
         result.buffType = BuffType.STUN;
@@ -304,13 +314,25 @@ export class AnimalManager {
   }
 
   private pickAnimalDef(): AnimalDef {
-    const r = Math.random();
+    // 根据当前分数过滤已解锁的动物类型
+    const unlockedTypes = new Set<AnimalType>();
+    for (const stage of ANIMAL_UNLOCK_STAGES) {
+      if (this.currentScore >= stage.minScore) {
+        stage.types.forEach(t => unlockedTypes.add(t));
+      }
+    }
+    const available = ANIMAL_DEFS.filter(d => unlockedTypes.has(d.type));
+    if (available.length === 0) return ANIMAL_DEFS[0];
+
+    // 按概率加权随机
+    const totalProb = available.reduce((s, d) => s + d.probability, 0);
+    const r = Math.random() * totalProb;
     let cumulative = 0;
-    for (const def of ANIMAL_DEFS) {
+    for (const def of available) {
       cumulative += def.probability;
       if (r < cumulative) return def;
     }
-    return ANIMAL_DEFS[0];
+    return available[0];
   }
 
   private findFreePosition(snakeBody: Position[]): Position | null {

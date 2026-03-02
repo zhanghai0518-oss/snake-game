@@ -163,7 +163,7 @@ export class Renderer {
       const flashRed = isHurt && Math.floor(this.hurtTimer * 10) % 2 === 0;
 
       // 从头到尾的颜色渐变（绿→深绿）
-      const hue = 140 - ratio * 20;
+      const hue = 45 - ratio * 10;  // 黄色(45)→橙黄(35)渐变
       const lightness = 50 - ratio * 20;
       const baseColor = flashRed ? `hsl(0, 80%, 50%)` : `hsl(${hue}, 70%, ${lightness}%)`;
       const darkColor = flashRed ? `hsl(0, 80%, 35%)` : `hsl(${hue}, 70%, ${lightness - 10}%)`;
@@ -239,7 +239,7 @@ export class Renderer {
     const headSize = cs * 0.48;
 
     // 三角形蛇头
-    const headColor = flashRed ? '#ff3333' : '#00ee77';
+    const headColor = flashRed ? '#ff3333' : '#ffcc00';  // 黄色蛇头
     ctx.fillStyle = headColor;
     ctx.beginPath();
     ctx.moveTo(headSize, 0);                              // 尖端（前方）
