@@ -1,4 +1,4 @@
-# 🐍 贪吃蛇大作战 (Snake Battle)
+# 🐍 贪吃蛇·动物大战 (Snake: Animal War)
 
 一款多平台贪吃蛇游戏，支持微信小程序、Web、Steam等多平台发布。
 
