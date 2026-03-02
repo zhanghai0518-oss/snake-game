@@ -211,7 +211,7 @@ export class TerrainManager {
       const w = this.config.gridWidth * this.cellSize;
       const h = this.config.gridHeight * this.cellSize;
       this.staticCanvas = new OffscreenCanvas(w, h);
-      const sctx = this.staticCanvas.getContext('2d')!;
+      const sctx = this.staticCanvas.getContext('2d')! as unknown as CanvasRenderingContext2D;
       this.renderDirtTexture(sctx);
       this.renderDecorations(sctx);
       this.renderBushBases(sctx);
@@ -236,7 +236,7 @@ export class TerrainManager {
       const w = this.config.gridWidth * this.cellSize;
       const h = this.config.gridHeight * this.cellSize;
       this.overlayCanvas = new OffscreenCanvas(w, h);
-      const octx = this.overlayCanvas.getContext('2d')!;
+      const octx = this.overlayCanvas.getContext('2d')! as unknown as CanvasRenderingContext2D;
       this.renderBushTops(octx);
     }
     ctx.drawImage(this.overlayCanvas, 0, 0);
