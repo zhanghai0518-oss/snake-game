@@ -1,21 +1,18 @@
-import { Position, Direction } from './Snake';
+import { Position } from './Snake';
 import { GameConfig } from '../config/GameConfig';
 import { BuffSystem, BuffType } from './BuffSystem';
 
 export type AnimalCategory = 'prey' | 'predator' | 'powerup';
 
 export enum AnimalType {
-  // Prey
   MOUSE = 'mouse',
   FROG = 'frog',
   RABBIT = 'rabbit',
   SNAKE_EGG = 'snake_egg',
   CRICKET = 'cricket',
-  // Predators
   EAGLE = 'eagle',
   HEDGEHOG = 'hedgehog',
   POISON_FROG = 'poison_frog',
-  // Powerups
   DIAMOND = 'diamond',
   MAGNET = 'magnet',
   ICE = 'ice',
@@ -56,10 +53,10 @@ export class Animal {
   private alive: boolean = true;
   frozen: boolean = false;
 
-  // Eagle-specific
+  // Eagle direction
   private eagleDirection: Position = { x: 1, y: 0 };
 
-  // Poison frog flash state
+  // Poison frog flash
   flashOn: boolean = true;
   private flashTimer: number = 0;
 
@@ -69,14 +66,12 @@ export class Animal {
     this.config = config;
 
     if (def.type === AnimalType.EAGLE) {
-      // Pick a random direction for the eagle
       const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
       this.eagleDirection = dirs[Math.floor(Math.random() * dirs.length)];
     }
   }
 
   get isAlive(): boolean { return this.alive; }
-
   kill(): void { this.alive = false; }
 
   update(deltaMs: number, snakeHead: Position): void {
@@ -91,24 +86,36 @@ export class Animal {
       case AnimalType.ICE:
       case AnimalType.FIRE:
       case AnimalType.GHOST:
-        // Static
         break;
 
       case AnimalType.FROG:
         if (this.aiTimer >= 2000) {
           this.aiTimer = 0;
-          this.moveRandom(1);
+          this.moveRandom();
         }
         break;
 
-      case AnimalType.RABBIT:
-        this.updateRabbit(deltaMs, snakeHead);
+      case AnimalType.RABBIT: {
+        const dx = snakeHead.x - this.position.x;
+        const dy = snakeHead.y - this.position.y;
+        const dist = Math.abs(dx) + Math.abs(dy);
+        if (dist <= 3 && this.aiTimer >= 400) {
+          this.aiTimer = 0;
+          const fleeX = dx !== 0 ? (dx > 0 ? -1 : 1) : 0;
+          const fleeY = dy !== 0 ? (dy > 0 ? -1 : 1) : 0;
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            this.tryMove(fleeX, 0);
+          } else {
+            this.tryMove(0, fleeY);
+          }
+        }
         break;
+      }
 
       case AnimalType.CRICKET:
         if (this.aiTimer >= 300) {
           this.aiTimer = 0;
-          this.moveRandom(1);
+          this.moveRandom();
         }
         break;
 
@@ -117,7 +124,8 @@ export class Animal {
           this.aiTimer = 0;
           this.position.x += this.eagleDirection.x;
           this.position.y += this.eagleDirection.y;
-          if (this.isOutOfBounds()) {
+          if (this.position.x < -1 || this.position.x > this.config.gridWidth ||
+              this.position.y < -1 || this.position.y > this.config.gridHeight) {
             this.alive = false;
           }
         }
@@ -126,7 +134,7 @@ export class Animal {
       case AnimalType.HEDGEHOG:
         if (this.aiTimer >= 1000) {
           this.aiTimer = 0;
-          this.moveRandom(1);
+          this.moveRandom();
         }
         break;
 
@@ -140,31 +148,10 @@ export class Animal {
     }
   }
 
-  private updateRabbit(_deltaMs: number, snakeHead: Position): void {
-    const dx = snakeHead.x - this.position.x;
-    const dy = snakeHead.y - this.position.y;
-    const dist = Math.abs(dx) + Math.abs(dy);
-
-    if (dist <= 3 && this.aiTimer >= 400) {
-      this.aiTimer = 0;
-      // Flee away from snake
-      const fleeX = dx !== 0 ? (dx > 0 ? -1 : 1) : 0;
-      const fleeY = dy !== 0 ? (dy > 0 ? -1 : 1) : 0;
-      // Pick primary flee axis
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        this.tryMove(fleeX, 0);
-      } else {
-        this.tryMove(0, fleeY);
-      }
-    }
-  }
-
-  private moveRandom(steps: number): void {
+  private moveRandom(): void {
     const dirs = [{ x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }];
-    for (let i = 0; i < steps; i++) {
-      const d = dirs[Math.floor(Math.random() * dirs.length)];
-      this.tryMove(d.x, d.y);
-    }
+    const d = dirs[Math.floor(Math.random() * dirs.length)];
+    this.tryMove(d.x, d.y);
   }
 
   private tryMove(dx: number, dy: number): void {
@@ -175,11 +162,6 @@ export class Animal {
       this.position.y = ny;
     }
   }
-
-  private isOutOfBounds(): boolean {
-    return this.position.x < -1 || this.position.x > this.config.gridWidth ||
-           this.position.y < -1 || this.position.y > this.config.gridHeight;
-  }
 }
 
 export interface CollisionResult {
@@ -188,7 +170,6 @@ export interface CollisionResult {
   points: number;
   buffType?: BuffType;
   buffDurationMs?: number;
-  special?: 'poison' | 'stun' | 'speed_boost';
 }
 
 export class AnimalManager {
@@ -209,15 +190,11 @@ export class AnimalManager {
     const frozen = buffSystem.has(BuffType.FREEZE_ENEMIES);
 
     for (const animal of this.animals) {
-      if (frozen && animal.def.category === 'predator') {
-        animal.frozen = true;
-      } else {
-        animal.frozen = false;
-      }
+      animal.frozen = frozen && animal.def.category === 'predator';
       animal.update(deltaMs, snakeHead);
     }
 
-    // Magnet: move prey toward snake
+    // Magnet: pull prey toward snake
     if (buffSystem.has(BuffType.MAGNET)) {
       for (const a of this.animals) {
         if (a.def.category === 'prey' && a.isAlive) {
@@ -229,7 +206,7 @@ export class AnimalManager {
       }
     }
 
-    // Remove dead animals
+    // Remove dead
     this.animals = this.animals.filter(a => a.isAlive);
 
     // Replenish
@@ -277,56 +254,40 @@ export class AnimalManager {
           this.snakeEggStreak = 0;
         }
         break;
-
       case AnimalType.CRICKET:
-        result.special = 'speed_boost';
         result.buffType = BuffType.SPEED_BOOST;
         result.buffDurationMs = 3000;
         break;
-
-      case AnimalType.EAGLE:
-        // -3 handled by growAmount
-        break;
-
       case AnimalType.HEDGEHOG:
-        result.special = 'stun';
         result.buffType = BuffType.STUN;
         result.buffDurationMs = 1500;
         break;
-
       case AnimalType.POISON_FROG:
-        result.special = 'poison';
         result.buffType = BuffType.POISON;
         result.buffDurationMs = 3000;
         break;
-
       case AnimalType.DIAMOND:
         result.buffType = BuffType.INVINCIBLE;
         result.buffDurationMs = 3000;
         break;
-
       case AnimalType.MAGNET:
         result.buffType = BuffType.MAGNET;
         result.buffDurationMs = 5000;
         break;
-
       case AnimalType.ICE:
         result.buffType = BuffType.FREEZE_ENEMIES;
         result.buffDurationMs = 3000;
         break;
-
       case AnimalType.FIRE:
         result.buffType = BuffType.FIRE;
         result.buffDurationMs = 5000;
         break;
-
       case AnimalType.GHOST:
         result.buffType = BuffType.GHOST;
         result.buffDurationMs = 5000;
         break;
     }
 
-    // Reset egg streak if not egg
     if (animal.def.type !== AnimalType.SNAKE_EGG) {
       this.snakeEggStreak = 0;
     }
@@ -349,7 +310,7 @@ export class AnimalManager {
       cumulative += def.probability;
       if (r < cumulative) return def;
     }
-    return ANIMAL_DEFS[0]; // fallback: mouse
+    return ANIMAL_DEFS[0];
   }
 
   private findFreePosition(snakeBody: Position[]): Position | null {
