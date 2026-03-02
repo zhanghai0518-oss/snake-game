@@ -83,7 +83,7 @@ export class Renderer {
 
   triggerEat(): void {
     this.swallowIndex = 0;
-    this.swallowTimer = 0.4;
+    this.swallowTimer = 0.8;  // 更长的吞咽时间，效果更明显
   }
 
   triggerHurt(): void {
@@ -261,9 +261,9 @@ export class Renderer {
       const cx = (seg.x + 0.5) * cs;
       const cy = (seg.y + 0.5) * cs;
 
-      const swallowWavePos = this.swallowTimer > 0 ? Math.floor((0.4 - this.swallowTimer) / 0.4 * 8) : -1;
+      const swallowWavePos = this.swallowTimer > 0 ? Math.floor((0.8 - this.swallowTimer) / 0.8 * body.length) : -1;
       const isSwallow = this.swallowTimer > 0 && i > 0 && Math.abs(i - swallowWavePos) <= 1;
-      const bulge = isSwallow ? 1.3 : 1.0;
+      const bulge = isSwallow ? 1.5 : 1.0;  // 鼓起1.5倍更明显
 
       // 尾巴逐渐变小
       const tailRatio = i / body.length;
@@ -333,112 +333,115 @@ export class Renderer {
     ctx.translate(cx, cy);
     ctx.rotate(angle);
 
-    const headW = cs * 0.55;
-    const headH = cs * 0.45;
+    const headW = cs * 0.6;
+    const headH = cs * 0.5;
     const headColor = flashRed ? '#ff4444' : '#FFD700';
 
-    // 圆润椭圆形蛇头
+    // 张嘴角度：平时就张大嘴（凶猛），吃东西时张得更大
+    const jawOpen = isEating ? headH * 0.7 : headH * 0.45;
+
+    // === 上颚 ===
     ctx.fillStyle = headColor;
     ctx.beginPath();
-    ctx.ellipse(0, 0, headW, headH, 0, 0, Math.PI * 2);
+    ctx.moveTo(headW * 1.15, -jawOpen * 0.1);           // 嘴尖上
+    ctx.quadraticCurveTo(headW * 0.5, -headH * 0.9, -headW * 0.6, -headH * 0.7);  // 头顶弧线
+    ctx.lineTo(-headW * 0.5, 0);                          // 后颈
+    ctx.lineTo(headW * 0.3, 0);                            // 下缘
+    ctx.closePath();
     ctx.fill();
 
-    // 头顶高光
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    // === 下颚 ===
+    ctx.fillStyle = flashRed ? '#dd2222' : '#E8C200';
     ctx.beginPath();
-    ctx.ellipse(-headW * 0.1, -headH * 0.25, headW * 0.5, headH * 0.3, -0.2, 0, Math.PI * 2);
+    ctx.moveTo(headW * 1.15, jawOpen * 0.1);              // 嘴尖下
+    ctx.quadraticCurveTo(headW * 0.5, headH * 0.9, -headW * 0.6, headH * 0.7);
+    ctx.lineTo(-headW * 0.5, 0);
+    ctx.lineTo(headW * 0.3, 0);
+    ctx.closePath();
     ctx.fill();
 
-    // 眼睛
-    const eyeX = headW * 0.2;
+    // === 嘴巴内部（红色口腔，一直可见） ===
+    ctx.fillStyle = isEating ? '#cc2222' : '#aa3333';
+    ctx.beginPath();
+    ctx.ellipse(headW * 0.55, 0, headW * 0.45, jawOpen * 0.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 嘴巴深处
+    ctx.fillStyle = '#661111';
+    ctx.beginPath();
+    ctx.ellipse(headW * 0.35, 0, headW * 0.2, jawOpen * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // === 尖牙（上下各2颗） ===
+    ctx.fillStyle = '#ffffff';
+    // 上牙
+    ctx.beginPath();
+    ctx.moveTo(headW * 0.75, -jawOpen * 0.05);
+    ctx.lineTo(headW * 0.65, jawOpen * 0.25);
+    ctx.lineTo(headW * 0.55, -jawOpen * 0.05);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(headW * 0.45, -jawOpen * 0.03);
+    ctx.lineTo(headW * 0.38, jawOpen * 0.18);
+    ctx.lineTo(headW * 0.3, -jawOpen * 0.03);
+    ctx.fill();
+    // 下牙
+    ctx.beginPath();
+    ctx.moveTo(headW * 0.75, jawOpen * 0.05);
+    ctx.lineTo(headW * 0.65, -jawOpen * 0.2);
+    ctx.lineTo(headW * 0.55, jawOpen * 0.05);
+    ctx.fill();
+
+    // 头部高光
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(-headW * 0.05, -headH * 0.35, headW * 0.4, headH * 0.2, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // === 凶猛的眼睛（竖瞳+锐利眼型） ===
+    const eyeX = headW * 0.05;
     const eyeY = headH * 0.55;
-    const eyeR = cs * 0.13;
+    const eyeR = cs * 0.14;
 
-    if (isEating) {
-      // ^_^ 开心眼睛
+    for (const ey of [-eyeY, eyeY]) {
+      // 黄色虹膜
+      ctx.fillStyle = flashRed ? '#ff6666' : '#ffee00';
+      ctx.beginPath();
+      ctx.arc(eyeX, ey, eyeR, 0, Math.PI * 2);
+      ctx.fill();
+      // 黑色眼框
       ctx.strokeStyle = '#333';
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = 'round';
-      // 左眼 ^
-      ctx.beginPath();
-      ctx.moveTo(eyeX - eyeR * 0.6, -eyeY + eyeR * 0.2);
-      ctx.lineTo(eyeX, -eyeY - eyeR * 0.4);
-      ctx.lineTo(eyeX + eyeR * 0.6, -eyeY + eyeR * 0.2);
+      ctx.lineWidth = 1.5;
       ctx.stroke();
-      // 右眼 ^
+      // 竖瞳（像真蛇）
+      ctx.fillStyle = '#111111';
       ctx.beginPath();
-      ctx.moveTo(eyeX - eyeR * 0.6, eyeY + eyeR * 0.2);
-      ctx.lineTo(eyeX, eyeY - eyeR * 0.4);
-      ctx.lineTo(eyeX + eyeR * 0.6, eyeY + eyeR * 0.2);
-      ctx.stroke();
-    } else {
-      // 正常大卡通眼睛：白色眼白 + 大黑瞳孔 + 高光点
-      for (const ey of [-eyeY, eyeY]) {
-        // 眼白
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(eyeX, ey, eyeR, 0, Math.PI * 2);
-        ctx.fill();
-        // 黑色瞳孔
-        ctx.fillStyle = '#222222';
-        ctx.beginPath();
-        ctx.arc(eyeX + eyeR * 0.15, ey, eyeR * 0.6, 0, Math.PI * 2);
-        ctx.fill();
-        // 高光点
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(eyeX + eyeR * 0.35, ey - eyeR * 0.25, eyeR * 0.22, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.ellipse(eyeX, ey, eyeR * 0.25, eyeR * 0.85, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // 高光
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(eyeX + eyeR * 0.3, ey - eyeR * 0.3, eyeR * 0.2, 0, Math.PI * 2);
+      ctx.fill();
     }
 
-    // 嘴巴
-    if (isEating) {
-      // O形张嘴
-      ctx.fillStyle = '#cc3333';
-      ctx.beginPath();
-      ctx.arc(headW * 0.7, 0, cs * 0.1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#ff6666';
-      ctx.beginPath();
-      ctx.arc(headW * 0.7, 0, cs * 0.05, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      // 可爱弧线微笑
-      ctx.strokeStyle = '#995500';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.arc(headW * 0.55, 0, cs * 0.1, -0.5, 0.5);
-      ctx.stroke();
-
-      // 舌头
-      const tongueLen = cs * 0.3 * (0.5 + 0.5 * Math.sin(this.tonguePhase));
-      const tongueStart = headW * 0.85;
-      ctx.strokeStyle = '#ff4466';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(tongueStart, 0);
-      ctx.lineTo(tongueStart + tongueLen * 0.65, 0);
-      ctx.lineTo(tongueStart + tongueLen, -cs * 0.06);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(tongueStart + tongueLen * 0.65, 0);
-      ctx.lineTo(tongueStart + tongueLen, cs * 0.06);
-      ctx.stroke();
-    }
-
-    // 腮红
-    ctx.fillStyle = 'rgba(255, 130, 100, 0.3)';
+    // === 舌头（从大嘴中伸出） ===
+    const tongueLen = cs * 0.5 * (0.5 + 0.5 * Math.sin(this.tonguePhase));
+    const tongueStart = headW * 1.05;
+    ctx.strokeStyle = '#ff2222';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.ellipse(-headW * 0.1, -eyeY - eyeR * 0.8, eyeR * 0.5, eyeR * 0.3, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(tongueStart, 0);
+    ctx.lineTo(tongueStart + tongueLen * 0.6, 0);
+    ctx.lineTo(tongueStart + tongueLen, -cs * 0.12);
+    ctx.stroke();
     ctx.beginPath();
-    ctx.ellipse(-headW * 0.1, eyeY + eyeR * 0.8, eyeR * 0.5, eyeR * 0.3, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(tongueStart + tongueLen * 0.6, 0);
+    ctx.lineTo(tongueStart + tongueLen, cs * 0.12);
+    ctx.stroke();
 
-    ctx.restore();
-  }
+    ctx.restore();  }
 
   private getSnakeDirection(body: Position[]): Direction {
     if (body.length < 2) return Direction.RIGHT;
