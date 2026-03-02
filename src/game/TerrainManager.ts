@@ -127,19 +127,34 @@ export class TerrainManager {
   }
 
   private generateBushes(): void {
-    const count = 4 + Math.floor(Math.random() * 3); // 4-6条灌木带
     const gw = this.config.gridWidth;
     const gh = this.config.gridHeight;
 
-    for (let i = 0; i < count; i++) {
+    // 固定设计：1-2个长灌木(5-7格) + 2-3个短灌木(2-3格)
+    const bushConfigs: Array<{ minLen: number; maxLen: number }> = [
+      { minLen: 5, maxLen: 7 },  // 长灌木1
+      { minLen: 5, maxLen: 7 },  // 长灌木2（50%概率生成）
+      { minLen: 2, maxLen: 3 },  // 短灌木1
+      { minLen: 2, maxLen: 3 },  // 短灌木2
+      { minLen: 2, maxLen: 3 },  // 短灌木3（50%概率生成）
+    ];
+
+    for (let i = 0; i < bushConfigs.length; i++) {
+      // 第2个长灌木和第5个短灌木各50%概率
+      if ((i === 1 || i === 4) && Math.random() < 0.5) continue;
+
+      const cfg = bushConfigs[i];
+      const length = cfg.minLen + Math.floor(Math.random() * (cfg.maxLen - cfg.minLen + 1));
       const isHorizontal = Math.random() > 0.5;
-      const length = 3 + Math.floor(Math.random() * 3); // 3-5格长
       const w = isHorizontal ? length : 1;
       const h = isHorizontal ? 1 : length;
 
+      // 短灌木优先放在河流边上
+      const preferRiverEdge = i >= 2;
       let gx: number, gy: number;
       let attempts = 0;
       let overlapsRiver: boolean;
+      let placed = false;
       do {
         gx = Math.floor(Math.random() * (gw - w));
         gy = Math.floor(Math.random() * (gh - h));
@@ -152,9 +167,21 @@ export class TerrainManager {
             }
           }
         }
-        attempts++;
-      } while (overlapsRiver && attempts < 30);
-      if (overlapsRiver) continue; // 放弃这条灌木
+        if (overlapsRiver) { attempts++; continue; }
+        // 短灌木检查是否靠近河流（至少一格相邻河流）
+        if (preferRiverEdge && attempts < 20) {
+          let nearRiver = false;
+          for (let dx = -1; dx <= w && !nearRiver; dx++) {
+            for (let dy = -1; dy <= h && !nearRiver; dy++) {
+              if (this.isInRiver({ x: gx + dx, y: gy + dy })) nearRiver = true;
+            }
+          }
+          if (!nearRiver) { attempts++; continue; }
+        }
+        placed = true;
+        break;
+      } while (++attempts < 30);
+      if (!placed) continue;
 
       const finalW = w;
       const finalH = h;
@@ -212,8 +239,7 @@ export class TerrainManager {
       const h = this.config.gridHeight * this.cellSize;
       this.staticCanvas = new OffscreenCanvas(w, h);
       const sctx = this.staticCanvas.getContext('2d')! as unknown as CanvasRenderingContext2D;
-      this.renderDirtTexture(sctx);
-      this.renderDecorations(sctx);
+      // 只渲染灌木（去掉土地圆圈和装饰圆圈）
       this.renderBushBases(sctx);
       this.renderBushTops(sctx);
     }
