@@ -505,144 +505,789 @@ export class Renderer {
 
     if (animal.frozen) {
       ctx.globalAlpha = 0.5;
-      // 冰冻效果：蓝色光晕
       ctx.shadowColor = '#66ccff';
       ctx.shadowBlur = 12;
     }
     if (animal.def.type === AnimalType.POISON_FROG) {
       ctx.globalAlpha = animal.flashOn ? 1.0 : 0.3;
-      // 毒气效果
       ctx.shadowColor = '#aa00ff';
       ctx.shadowBlur = 10;
     }
 
-    const emoji = this.animalEmojis[animal.def.type] || '❓';
-    const fontSize = cs * 0.8;
-
-    // 动画效果
-    let offsetX = 0, offsetY = 0, scale = 1, rotation = 0;
-
-    switch (animal.def.type) {
-      case AnimalType.MOUSE:
-        // 微微抖动
-        offsetX = Math.sin(t * 12) * cs * 0.03;
-        offsetY = Math.cos(t * 10) * cs * 0.02;
-        break;
-      case AnimalType.FROG:
-        // 跳跃弹性
-        offsetY = -Math.abs(Math.sin(t * 4)) * cs * 0.15;
-        scale = 1 + Math.sin(t * 4) * 0.08;
-        break;
-      case AnimalType.RABBIT:
-        // 兔子蹦跳
-        offsetY = -Math.abs(Math.sin(t * 5)) * cs * 0.12;
-        break;
-      case AnimalType.SNAKE_EGG:
-        // 轻微摇晃
-        rotation = Math.sin(t * 2) * 0.1;
-        break;
-      case AnimalType.BIRD_EGG:
-        // 偶尔颤抖（要孵化了）
-        offsetX = Math.sin(t * 20) * cs * 0.01 * (Math.sin(t * 0.5) > 0.8 ? 1 : 0);
-        break;
-      case AnimalType.EAGLE:
-        // 上下飞翔
-        offsetY = Math.sin(t * 3) * cs * 0.08;
-        break;
-      case AnimalType.HEDGEHOG:
-        // 缓慢晃动
-        rotation = Math.sin(t * 1.5) * 0.08;
-        break;
-      case AnimalType.POISON_FROG:
-        // 冒泡效果
-        scale = 1 + Math.sin(t * 6) * 0.05;
-        break;
-      case AnimalType.DIAMOND:
-        // 旋转闪烁
-        scale = 1 + Math.sin(t * 4) * 0.1;
-        ctx.shadowColor = '#ffdd00';
-        ctx.shadowBlur = 15 + Math.sin(t * 6) * 8;
-        break;
-      case AnimalType.MAGNET:
-        // 脉动
-        scale = 1 + Math.sin(t * 5) * 0.08;
-        ctx.shadowColor = '#ff4444';
-        ctx.shadowBlur = 8;
-        break;
-      case AnimalType.ICE:
-        // 旋转
-        rotation = t * 1.5;
-        ctx.shadowColor = '#88ddff';
-        ctx.shadowBlur = 12;
-        break;
-      case AnimalType.FIRE:
-        // 跳动火焰
-        offsetY = Math.sin(t * 8) * cs * 0.05;
-        scale = 1 + Math.sin(t * 10) * 0.06;
-        ctx.shadowColor = '#ff6600';
-        ctx.shadowBlur = 15;
-        break;
-      case AnimalType.GHOST:
-        // 飘浮 + 半透明
-        offsetY = Math.sin(t * 2) * cs * 0.1;
-        ctx.globalAlpha *= (0.7 + Math.sin(t * 3) * 0.2);
-        ctx.shadowColor = '#aaaaff';
-        ctx.shadowBlur = 10;
-        break;
-    }
-
-    // 猎物底部阴影（增加立体感）
+    // 猎物底部阴影
     if (animal.def.category === 'prey') {
-      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
       ctx.beginPath();
-      ctx.ellipse(x, y + cs * 0.35, cs * 0.25, cs * 0.08, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y + cs * 0.38, cs * 0.22, cs * 0.07, 0, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // 天敌红色警告圈
+    // 天敌红色虚线警告圈（闪烁）
     if (animal.def.category === 'predator') {
-      const warningAlpha = 0.2 + Math.sin(t * 6) * 0.15;
-      ctx.strokeStyle = `rgba(255,50,50,${warningAlpha})`;
+      const warningAlpha = 0.25 + Math.sin(t * 6) * 0.2;
+      ctx.strokeStyle = `rgba(255,30,30,${warningAlpha})`;
       ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
       ctx.beginPath();
-      ctx.arc(x, y, cs * 0.42, 0, Math.PI * 2);
+      ctx.arc(x, y, cs * 0.44, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.setLineDash([]);
     }
 
-    // 道具金色光圈
+    // 道具金色光圈（脉动）
     if (animal.def.category === 'powerup') {
-      const glowAlpha = 0.3 + Math.sin(t * 4) * 0.2;
-      ctx.strokeStyle = `rgba(255,220,50,${glowAlpha})`;
-      ctx.lineWidth = 2.5;
+      const glowAlpha = 0.35 + Math.sin(t * 4) * 0.25;
+      ctx.strokeStyle = `rgba(255,215,0,${glowAlpha})`;
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(x, y, cs * 0.42, 0, Math.PI * 2);
+      ctx.arc(x, y, cs * 0.44, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    // 渲染emoji
-    ctx.translate(x + offsetX, y + offsetY);
-    ctx.rotate(rotation);
-    ctx.scale(scale, scale);
-
-    ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(emoji, 0, 0);
+    // 手绘动物 or emoji道具
+    switch (animal.def.type) {
+      case AnimalType.MOUSE:
+        this.drawMouse(ctx, x, y, cs, t);
+        break;
+      case AnimalType.FROG:
+        this.drawFrog(ctx, x, y, cs, t);
+        break;
+      case AnimalType.RABBIT:
+        this.drawRabbit(ctx, x, y, cs, t);
+        break;
+      case AnimalType.SNAKE_EGG:
+        this.drawSnakeEgg(ctx, x, y, cs, t);
+        break;
+      case AnimalType.BIRD_EGG:
+        this.drawBirdEgg(ctx, x, y, cs, t);
+        break;
+      case AnimalType.EAGLE:
+        this.drawEagle(ctx, x, y, cs, t);
+        break;
+      case AnimalType.HEDGEHOG:
+        this.drawHedgehog(ctx, x, y, cs, t);
+        break;
+      case AnimalType.POISON_FROG:
+        this.drawPoisonFrog(ctx, x, y, cs, t);
+        break;
+      case AnimalType.DIAMOND:
+        this.drawDiamond(ctx, x, y, cs, t);
+        break;
+      default: {
+        // 道具用emoji + 动画光晕
+        const emoji = this.animalEmojis[animal.def.type] || '❓';
+        let offsetX = 0, offsetY = 0, scale = 1, rotation = 0;
+        switch (animal.def.type) {
+          case AnimalType.MAGNET:
+            scale = 1 + Math.sin(t * 5) * 0.08;
+            ctx.shadowColor = '#ff4444';
+            ctx.shadowBlur = 10;
+            break;
+          case AnimalType.ICE:
+            rotation = t * 1.5;
+            ctx.shadowColor = '#88ddff';
+            ctx.shadowBlur = 14;
+            break;
+          case AnimalType.FIRE:
+            offsetY = Math.sin(t * 8) * cs * 0.05;
+            scale = 1 + Math.sin(t * 10) * 0.06;
+            ctx.shadowColor = '#ff6600';
+            ctx.shadowBlur = 16;
+            break;
+          case AnimalType.GHOST:
+            offsetY = Math.sin(t * 2) * cs * 0.1;
+            ctx.globalAlpha *= (0.7 + Math.sin(t * 3) * 0.2);
+            ctx.shadowColor = '#aaaaff';
+            ctx.shadowBlur = 12;
+            break;
+        }
+        ctx.save();
+        ctx.translate(x + offsetX, y + offsetY);
+        ctx.rotate(rotation);
+        ctx.scale(scale, scale);
+        const fontSize = cs * 0.75;
+        ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emoji, 0, 0);
+        ctx.restore();
+        break;
+      }
+    }
 
     ctx.restore();
 
-    // 毒蛙冒毒气泡（在restore之后绘制，不受alpha影响）
+    // 毒蛙冒毒气泡
     if (animal.def.type === AnimalType.POISON_FROG) {
       this.drawPoisonBubbles(ctx, x, y, cs, t);
     }
   }
 
+  // =================== 手绘动物 ===================
+
+  private drawMouse(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
+    const s = cs * 0.42;
+    // 抖动动画
+    const ox = Math.sin(t * 12) * s * 0.06;
+    const oy = Math.cos(t * 10) * s * 0.04;
+    ctx.save();
+    ctx.translate(x + ox, y + oy);
+
+    // 尾巴（S形粉色）
+    ctx.strokeStyle = '#ff8899';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, s * 0.4);
+    ctx.bezierCurveTo(s * 0.5, s * 0.6, -s * 0.3, s * 0.9, s * 0.4, s * 1.1);
+    ctx.stroke();
+
+    // 身体（灰色圆）
+    ctx.fillStyle = '#777777';
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 耳朵（左）
+    ctx.fillStyle = '#999';
+    ctx.beginPath();
+    ctx.arc(-s * 0.35, -s * 0.45, s * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#ffaaaa';
+    ctx.beginPath();
+    ctx.arc(-s * 0.35, -s * 0.45, s * 0.17, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 耳朵（右）
+    ctx.fillStyle = '#999';
+    ctx.beginPath();
+    ctx.arc(s * 0.35, -s * 0.45, s * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#555';
+    ctx.stroke();
+    ctx.fillStyle = '#ffaaaa';
+    ctx.beginPath();
+    ctx.arc(s * 0.35, -s * 0.45, s * 0.17, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 眼睛
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(-s * 0.18, -s * 0.1, s * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.arc(s * 0.18, -s * 0.1, s * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    // 高光
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(-s * 0.15, -s * 0.14, s * 0.04, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s * 0.21, -s * 0.14, s * 0.04, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 粉红大鼻子
+    ctx.fillStyle = '#ff6688';
+    ctx.beginPath();
+    ctx.arc(0, s * 0.05, s * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 胡须（每边3根）
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1.5;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.15, s * 0.08 + i * s * 0.07);
+      ctx.lineTo(-s * 0.55, s * 0.02 + i * s * 0.12);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(s * 0.15, s * 0.08 + i * s * 0.07);
+      ctx.lineTo(s * 0.55, s * 0.02 + i * s * 0.12);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  private drawFrog(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
+    const s = cs * 0.45;
+    // 跳跃弹性动画
+    const jump = Math.sin(t * 4);
+    const oy = -Math.abs(jump) * s * 0.3;
+    const scaleX = 1 + jump * 0.06;
+    const scaleY = 1 - jump * 0.06;
+    ctx.save();
+    ctx.translate(x, y + oy);
+    ctx.scale(scaleX, scaleY);
+
+    // 后腿
+    ctx.fillStyle = '#22aa22';
+    ctx.strokeStyle = '#116611';
+    ctx.lineWidth = 2;
+    // 左腿
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.4, s * 0.35, s * 0.18, s * 0.1, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // 右腿
+    ctx.beginPath();
+    ctx.ellipse(s * 0.4, s * 0.35, s * 0.18, s * 0.1, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 身体（鲜绿椭圆）
+    ctx.fillStyle = '#22bb22';
+    ctx.strokeStyle = '#117711';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(0, s * 0.05, s * 0.48, s * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 浅绿肚皮
+    ctx.fillStyle = '#88ee66';
+    ctx.beginPath();
+    ctx.ellipse(0, s * 0.12, s * 0.28, s * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 红色腮帮
+    ctx.fillStyle = 'rgba(255,80,80,0.5)';
+    ctx.beginPath();
+    ctx.arc(-s * 0.32, s * 0.05, s * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s * 0.32, s * 0.05, s * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 大鼓眼（凸出头顶）
+    // 左眼
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#117711';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(-s * 0.22, -s * 0.35, s * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(-s * 0.22, -s * 0.32, s * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(-s * 0.19, -s * 0.37, s * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 右眼
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#117711';
+    ctx.beginPath();
+    ctx.arc(s * 0.22, -s * 0.35, s * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(s * 0.22, -s * 0.32, s * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s * 0.25, -s * 0.37, s * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 宽嘴巴
+    ctx.strokeStyle = '#116611';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, s * 0.02, s * 0.25, 0.1, Math.PI - 0.1);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  private drawRabbit(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
+    const s = cs * 0.42;
+    // 蹦跳动画
+    const oy = -Math.abs(Math.sin(t * 5)) * s * 0.25;
+    const earWave = Math.sin(t * 3) * 0.12;
+    ctx.save();
+    ctx.translate(x, y + oy);
+
+    // 短尾巴
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#bbb';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, s * 0.45, s * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 身体（雪白圆）
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 超长耳朵（左）
+    ctx.save();
+    ctx.rotate(-0.15 + earWave);
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.18, -s * 0.75, s * 0.12, s * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffaaaa';
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.18, -s * 0.75, s * 0.07, s * 0.25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 超长耳朵（右）
+    ctx.save();
+    ctx.rotate(0.15 - earWave);
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(s * 0.18, -s * 0.75, s * 0.12, s * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffaaaa';
+    ctx.beginPath();
+    ctx.ellipse(s * 0.18, -s * 0.75, s * 0.07, s * 0.25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 大红色眼睛（宝石红）
+    ctx.fillStyle = '#cc0022';
+    ctx.beginPath();
+    ctx.arc(-s * 0.17, -s * 0.08, s * 0.09, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s * 0.17, -s * 0.08, s * 0.09, 0, Math.PI * 2);
+    ctx.fill();
+    // 高光
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(-s * 0.14, -s * 0.12, s * 0.035, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s * 0.2, -s * 0.12, s * 0.035, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 倒三角粉鼻子
+    ctx.fillStyle = '#ff7799';
+    ctx.beginPath();
+    ctx.moveTo(0, s * 0.0);
+    ctx.lineTo(-s * 0.07, -s * 0.08);
+    ctx.lineTo(s * 0.07, -s * 0.08);
+    ctx.closePath();
+    ctx.fill();
+
+    // Y形嘴
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, s * 0.02);
+    ctx.lineTo(0, s * 0.12);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, s * 0.12);
+    ctx.lineTo(-s * 0.08, s * 0.2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, s * 0.12);
+    ctx.lineTo(s * 0.08, s * 0.2);
+    ctx.stroke();
+
+    // 门牙
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 1;
+    ctx.fillRect(-s * 0.05, s * 0.12, s * 0.045, s * 0.08);
+    ctx.strokeRect(-s * 0.05, s * 0.12, s * 0.045, s * 0.08);
+    ctx.fillRect(s * 0.005, s * 0.12, s * 0.045, s * 0.08);
+    ctx.strokeRect(s * 0.005, s * 0.12, s * 0.045, s * 0.08);
+
+    ctx.restore();
+  }
+
+  private drawSnakeEgg(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
+    const s = cs * 0.38;
+    const rot = Math.sin(t * 2) * 0.1;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+
+    // 蛋形
+    ctx.fillStyle = '#fff8ee';
+    ctx.strokeStyle = '#aa8855';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, s * 0.38, s * 0.48, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 棕色斑纹
+    ctx.fillStyle = '#bb9966';
+    const spots = [[- s * 0.1, -s * 0.15, s * 0.07], [s * 0.12, s * 0.1, s * 0.06], [-s * 0.05, s * 0.2, s * 0.05]];
+    for (const sp of spots) {
+      ctx.beginPath();
+      ctx.arc(sp[0], sp[1], sp[2], 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 裂纹
+    ctx.strokeStyle = '#998866';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.05, -s * 0.4);
+    ctx.lineTo(s * 0.02, -s * 0.3);
+    ctx.lineTo(-s * 0.08, -s * 0.22);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  private drawBirdEgg(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
+    const s = cs * 0.38;
+    const shake = Math.sin(t * 20) * s * 0.02 * (Math.sin(t * 0.5) > 0.8 ? 1 : 0);
+    ctx.save();
+    ctx.translate(x + shake, y);
+
+    // 草窝底座
+    ctx.fillStyle = '#8B6914';
+    ctx.beginPath();
+    ctx.ellipse(0, s * 0.32, s * 0.45, s * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 草丝
+    ctx.strokeStyle = '#A0822A';
+    ctx.lineWidth = 1.5;
+    for (let i = -3; i <= 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * s * 0.12, s * 0.28);
+      ctx.lineTo(i * s * 0.15 + Math.sin(i) * s * 0.05, s * 0.18);
+      ctx.stroke();
+    }
+
+    // 浅蓝蛋
+    ctx.fillStyle = '#aaddff';
+    ctx.strokeStyle = '#5599cc';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, -s * 0.05, s * 0.32, s * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 深蓝斑点
+    ctx.fillStyle = '#4488bb';
+    const dots = [[-s * 0.1, -s * 0.2], [s * 0.12, -s * 0.05], [-s * 0.05, s * 0.15], [s * 0.08, -s * 0.3]];
+    for (const d of dots) {
+      ctx.beginPath();
+      ctx.arc(d[0], d[1], s * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  private drawEagle(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
+    const s = cs * 0.45;
+    const wingFlap = Math.sin(t * 5) * 0.35;
+    const oy = Math.sin(t * 3) * s * 0.15;
+    ctx.save();
+    ctx.translate(x, y + oy);
+
+    // 翅膀（左）
+    ctx.save();
+    ctx.rotate(-wingFlap);
+    ctx.fillStyle = '#5C3317';
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.15, 0);
+    ctx.bezierCurveTo(-s * 0.7, -s * 0.3, -s * 0.9, -s * 0.1, -s * 0.75, s * 0.15);
+    ctx.bezierCurveTo(-s * 0.5, s * 0.1, -s * 0.3, s * 0.05, -s * 0.15, 0);
+    ctx.fill();
+    ctx.restore();
+
+    // 翅膀（右）
+    ctx.save();
+    ctx.rotate(wingFlap);
+    ctx.fillStyle = '#5C3317';
+    ctx.beginPath();
+    ctx.moveTo(s * 0.15, 0);
+    ctx.bezierCurveTo(s * 0.7, -s * 0.3, s * 0.9, -s * 0.1, s * 0.75, s * 0.15);
+    ctx.bezierCurveTo(s * 0.5, s * 0.1, s * 0.3, s * 0.05, s * 0.15, 0);
+    ctx.fill();
+    ctx.restore();
+
+    // 身体
+    ctx.fillStyle = '#6B3A1F';
+    ctx.beginPath();
+    ctx.ellipse(0, s * 0.05, s * 0.25, s * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 白色头部
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(0, -s * 0.28, s * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 锐利橙色眼睛
+    ctx.fillStyle = '#ff8800';
+    ctx.beginPath();
+    ctx.arc(-s * 0.08, -s * 0.3, s * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s * 0.08, -s * 0.3, s * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+    // 黑瞳
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(-s * 0.08, -s * 0.3, s * 0.03, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s * 0.08, -s * 0.3, s * 0.03, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 弯钩黄嘴
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.2);
+    ctx.lineTo(-s * 0.06, -s * 0.15);
+    ctx.quadraticCurveTo(0, -s * 0.05, s * 0.02, -s * 0.08);
+    ctx.lineTo(s * 0.06, -s * 0.15);
+    ctx.closePath();
+    ctx.fill();
+
+    // 尾巴
+    ctx.fillStyle = '#4A2A0F';
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.1, s * 0.35);
+    ctx.lineTo(0, s * 0.55);
+    ctx.lineTo(s * 0.1, s * 0.35);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  private drawHedgehog(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
+    const s = cs * 0.42;
+    const rot = Math.sin(t * 1.5) * 0.08;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+
+    // 刺（背面三角形）
+    ctx.fillStyle = '#5C3317';
+    for (let a = -2.5; a <= 0.8; a += 0.35) {
+      const sx = Math.cos(a) * s * 0.45;
+      const sy = Math.sin(a) * s * 0.4;
+      const dx = Math.cos(a) * s * 0.25;
+      const dy = Math.sin(a) * s * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(sx + dy * 0.3, sy - dx * 0.3);
+      ctx.lineTo(sx - dy * 0.3, sy + dx * 0.3);
+      ctx.lineTo(sx + dx, sy + dy);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 棕色半球身体
+    ctx.fillStyle = '#8B5E3C';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 米色小脸
+    ctx.fillStyle = '#F5DEB3';
+    ctx.beginPath();
+    ctx.ellipse(s * 0.2, s * 0.05, s * 0.22, s * 0.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 小黑眼
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(s * 0.28, -s * 0.02, s * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 小黑鼻
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(s * 0.4, s * 0.08, s * 0.04, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 四条小短腿
+    ctx.fillStyle = '#8B5E3C';
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.2, s * 0.35, s * 0.07, s * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(s * 0.1, s * 0.35, s * 0.07, s * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.1, s * 0.38, s * 0.06, s * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(s * 0.2, s * 0.38, s * 0.06, s * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  private drawPoisonFrog(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
+    const s = cs * 0.42;
+    const sc = 1 + Math.sin(t * 6) * 0.05;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sc, sc);
+
+    // 紫色身体
+    ctx.fillStyle = '#9933cc';
+    ctx.strokeStyle = '#551a8b';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(0, s * 0.05, s * 0.45, s * 0.38, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 鲜红色警告斑点
+    ctx.fillStyle = '#ff2222';
+    const redSpots = [[-s * 0.15, -s * 0.05, s * 0.08], [s * 0.2, s * 0.1, s * 0.07], [-s * 0.05, s * 0.2, s * 0.06], [s * 0.1, -s * 0.15, s * 0.05]];
+    for (const sp of redSpots) {
+      ctx.beginPath();
+      ctx.arc(sp[0], sp[1], sp[2], 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 邪恶红色眼睛
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    ctx.arc(-s * 0.2, -s * 0.3, s * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s * 0.2, -s * 0.3, s * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#cc0000';
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.2, -s * 0.28, s * 0.05, s * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(s * 0.2, -s * 0.28, s * 0.05, s * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 邪恶嘴
+    ctx.strokeStyle = '#330066';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, s * 0.05, s * 0.2, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+    // 尖牙
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.1, s * 0.15);
+    ctx.lineTo(-s * 0.07, s * 0.25);
+    ctx.lineTo(-s * 0.04, s * 0.15);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(s * 0.04, s * 0.15);
+    ctx.lineTo(s * 0.07, s * 0.25);
+    ctx.lineTo(s * 0.1, s * 0.15);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  private drawDiamond(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
+    const s = cs * 0.35;
+    const rot = Math.sin(t * 2) * 0.15;
+    const sc = 1 + Math.sin(t * 4) * 0.1;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.scale(sc, sc);
+
+    // 金色光晕
+    ctx.shadowColor = '#ffdd00';
+    ctx.shadowBlur = 15 + Math.sin(t * 6) * 8;
+
+    // 钻石形状（上半菱形+下半三角）
+    const grad = ctx.createLinearGradient(-s * 0.4, -s * 0.5, s * 0.4, s * 0.5);
+    grad.addColorStop(0, '#88ddff');
+    grad.addColorStop(0.4, '#55ccff');
+    grad.addColorStop(0.7, '#aaeeff');
+    grad.addColorStop(1, '#44aadd');
+    ctx.fillStyle = grad;
+
+    // 上半部分（梯形）
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.55);
+    ctx.lineTo(s * 0.45, -s * 0.1);
+    ctx.lineTo(-s * 0.45, -s * 0.1);
+    ctx.closePath();
+    ctx.fill();
+
+    // 下半部分（三角）
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.45, -s * 0.1);
+    ctx.lineTo(s * 0.45, -s * 0.1);
+    ctx.lineTo(0, s * 0.55);
+    ctx.closePath();
+    ctx.fill();
+
+    // 描边
+    ctx.strokeStyle = '#3399cc';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.55);
+    ctx.lineTo(s * 0.45, -s * 0.1);
+    ctx.lineTo(0, s * 0.55);
+    ctx.lineTo(-s * 0.45, -s * 0.1);
+    ctx.closePath();
+    ctx.stroke();
+
+    // 内部折线（切面感）
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.2, -s * 0.1);
+    ctx.lineTo(0, -s * 0.35);
+    ctx.lineTo(s * 0.2, -s * 0.1);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.2, -s * 0.1);
+    ctx.lineTo(0, s * 0.55);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(s * 0.2, -s * 0.1);
+    ctx.lineTo(0, s * 0.55);
+    ctx.stroke();
+
+    // 闪光高光
+    const flashAlpha = 0.4 + Math.sin(t * 8) * 0.4;
+    ctx.fillStyle = `rgba(255,255,255,${flashAlpha})`;
+    ctx.beginPath();
+    ctx.arc(-s * 0.1, -s * 0.25, s * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   private drawPoisonBubbles(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
-    ctx.fillStyle = 'rgba(170,0,255,0.4)';
-    for (let i = 0; i < 3; i++) {
-      const bx = x + Math.sin(t * 2 + i * 2.1) * cs * 0.3;
-      const by = y - cs * 0.3 - ((t * 30 + i * 20) % (cs * 0.6));
-      const br = 2 + Math.sin(t * 3 + i) * 1;
+    ctx.fillStyle = 'rgba(170,0,255,0.5)';
+    for (let i = 0; i < 4; i++) {
+      const bx = x + Math.sin(t * 2 + i * 1.8) * cs * 0.3;
+      const by = y - cs * 0.3 - ((t * 30 + i * 18) % (cs * 0.6));
+      const br = 2.5 + Math.sin(t * 3 + i) * 1.5;
       ctx.beginPath();
       ctx.arc(bx, by, br, 0, Math.PI * 2);
       ctx.fill();
