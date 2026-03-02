@@ -129,23 +129,32 @@ export class TerrainManager {
     const gh = this.config.gridHeight;
 
     for (let i = 0; i < count; i++) {
-      let gx: number, gy: number;
-      let attempts = 0;
-      do {
-        gx = Math.floor(Math.random() * (gw - 2));
-        gy = Math.floor(Math.random() * (gh - 2));
-        attempts++;
-      } while (this.isInRiver({ x: gx, y: gy }) && attempts < 20);
-
-      // 长条形灌木：随机水平或垂直方向
       const isHorizontal = Math.random() > 0.5;
       const length = 3 + Math.floor(Math.random() * 3); // 3-5格长
       const w = isHorizontal ? length : 1;
       const h = isHorizontal ? 1 : length;
 
-      // 确保不超出边界
-      const finalW = Math.min(w, gw - gx);
-      const finalH = Math.min(h, gh - gy);
+      let gx: number, gy: number;
+      let attempts = 0;
+      let overlapsRiver: boolean;
+      do {
+        gx = Math.floor(Math.random() * (gw - w));
+        gy = Math.floor(Math.random() * (gh - h));
+        // 检查灌木每一格都不在河里
+        overlapsRiver = false;
+        for (let dx = 0; dx < w && !overlapsRiver; dx++) {
+          for (let dy = 0; dy < h && !overlapsRiver; dy++) {
+            if (this.isInRiver({ x: gx + dx, y: gy + dy })) {
+              overlapsRiver = true;
+            }
+          }
+        }
+        attempts++;
+      } while (overlapsRiver && attempts < 30);
+      if (overlapsRiver) continue; // 放弃这条灌木
+
+      const finalW = w;
+      const finalH = h;
 
       // 沿着长条方向排列椭圆形灌木丛
       const circles: Bush['circles'] = [];
