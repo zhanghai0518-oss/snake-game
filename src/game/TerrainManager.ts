@@ -43,6 +43,11 @@ export class TerrainManager {
   private dirtTexture: Array<{ x: number; y: number; shade: number }> = [];
   private lastCrocSpawn: number = -5;  // 首只鳄鱼5秒后出现
   private currentTime: number = 0;
+  
+  // 农夫系统
+  private farmerPos: Position;
+  private farmerDir: number = 1;
+  private farmerTimer: number = 0;
 
   // River bezier control points for rendering
   private riverCP: { p0: RiverPoint; p1: RiverPoint; p2: RiverPoint; p3: RiverPoint };
@@ -51,6 +56,7 @@ export class TerrainManager {
     this.config = config;
     this.cellSize = config.cellSize;
     this.riverCP = { p0: { x: 0, y: 0 }, p1: { x: 0, y: 0 }, p2: { x: 0, y: 0 }, p3: { x: 0, y: 0 } };
+    this.farmerPos = { x: Math.floor(config.gridWidth / 2), y: 0 };
     this.generate();
   }
 
@@ -180,8 +186,10 @@ export class TerrainManager {
     this.renderDirtTexture(ctx);
     this.renderDecorations(ctx);
     this.renderRiver(ctx, time);
-    // Bush bases rendered here (bottom layer)
+    // Bush bases (shadow) + full bushes rendered in base layer too
     this.renderBushBases(ctx);
+    this.renderBushTops(ctx);  // 底层也画灌木，确保可见
+    this.renderFarmer(ctx, time);
   }
 
   renderOverlay(ctx: CanvasRenderingContext2D, time: number): void {
@@ -392,5 +400,155 @@ export class TerrainManager {
   /** Get bush regions for external use (e.g. animal opacity) */
   getBushes(): Array<{ gridX: number; gridY: number; width: number; height: number }> {
     return this.bushes.map(b => ({ gridX: b.gridX, gridY: b.gridY, width: b.width, height: b.height }));
+  }
+
+  // ==================== 农夫系统 ====================
+
+  private renderFarmer(ctx: CanvasRenderingContext2D, time: number): void {
+    // 农夫每3秒移动一格，随机巡逻
+    this.farmerTimer += 0.016; // ~60fps
+    if (this.farmerTimer >= 3) {
+      this.farmerTimer = 0;
+      // 随机移动
+      const dirs = [
+        { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+        { x: 1, y: 1 }, { x: -1, y: -1 },
+      ];
+      const d = dirs[Math.floor(Math.random() * dirs.length)];
+      const nx = this.farmerPos.x + d.x;
+      const ny = this.farmerPos.y + d.y;
+      if (nx >= 0 && nx < this.config.gridWidth && ny >= 0 && ny < this.config.gridHeight) {
+        this.farmerPos.x = nx;
+        this.farmerPos.y = ny;
+        this.farmerDir = d.x >= 0 ? 1 : -1;
+      }
+    }
+
+    const cs = this.cellSize;
+    const cx = (this.farmerPos.x + 0.5) * cs;
+    const cy = (this.farmerPos.y + 0.5) * cs;
+    const walk = Math.sin(time * 4) * 0.08; // 走路摆动
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(this.farmerDir, 1); // 面朝方向
+
+    // 阴影
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.ellipse(0, cs * 0.4, cs * 0.2, cs * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 腿（走路摆动）
+    ctx.fillStyle = '#5566aa';  // 蓝色裤子
+    ctx.beginPath();
+    ctx.roundRect(-cs * 0.08 - cs * 0.06, cs * 0.1, cs * 0.12, cs * 0.25 + Math.sin(time * 8) * cs * 0.03, 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.roundRect(cs * 0.08 - cs * 0.06, cs * 0.1, cs * 0.12, cs * 0.25 - Math.sin(time * 8) * cs * 0.03, 2);
+    ctx.fill();
+
+    // 鞋子
+    ctx.fillStyle = '#553311';
+    ctx.beginPath();
+    ctx.roundRect(-cs * 0.1, cs * 0.32, cs * 0.12, cs * 0.06, 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.roundRect(cs * 0.02, cs * 0.32, cs * 0.12, cs * 0.06, 2);
+    ctx.fill();
+
+    // 身体（棕色工作服）
+    ctx.fillStyle = '#8B6914';
+    ctx.beginPath();
+    ctx.roundRect(-cs * 0.15, -cs * 0.15, cs * 0.3, cs * 0.3, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#6B4914';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // 吊带
+    ctx.strokeStyle = '#6B4914';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-cs * 0.1, -cs * 0.15);
+    ctx.lineTo(-cs * 0.06, cs * 0.15);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cs * 0.1, -cs * 0.15);
+    ctx.lineTo(cs * 0.06, cs * 0.15);
+    ctx.stroke();
+
+    // 手臂（摆动）
+    ctx.fillStyle = '#dda870';  // 肤色
+    ctx.beginPath();
+    ctx.roundRect(-cs * 0.22, -cs * 0.08 + Math.sin(time * 4) * cs * 0.03, cs * 0.08, cs * 0.2, 3);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.roundRect(cs * 0.14, -cs * 0.08 - Math.sin(time * 4) * cs * 0.03, cs * 0.08, cs * 0.2, 3);
+    ctx.fill();
+
+    // 头（圆形）
+    ctx.fillStyle = '#dda870';
+    ctx.beginPath();
+    ctx.arc(0, -cs * 0.28, cs * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 草帽
+    ctx.fillStyle = '#e8d44d';
+    // 帽檐
+    ctx.beginPath();
+    ctx.ellipse(0, -cs * 0.33, cs * 0.22, cs * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#c4a830';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // 帽顶
+    ctx.fillStyle = '#e8d44d';
+    ctx.beginPath();
+    ctx.ellipse(0, -cs * 0.4, cs * 0.12, cs * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 脸部
+    // 眼睛
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.arc(-cs * 0.05, -cs * 0.28, cs * 0.025, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cs * 0.05, -cs * 0.28, cs * 0.025, 0, Math.PI * 2); ctx.fill();
+    // 鼻子
+    ctx.fillStyle = '#cc9966';
+    ctx.beginPath(); ctx.arc(0, -cs * 0.24, cs * 0.02, 0, Math.PI * 2); ctx.fill();
+    // 嘴
+    ctx.strokeStyle = '#aa6633';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(0, -cs * 0.22, cs * 0.04, 0.2, Math.PI - 0.2); ctx.stroke();
+
+    // 手里的锄头/叉子
+    ctx.strokeStyle = '#8B5A2B';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(cs * 0.18, -cs * 0.05);
+    ctx.lineTo(cs * 0.3, -cs * 0.4);
+    ctx.stroke();
+    // 叉头
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cs * 0.25, -cs * 0.4);
+    ctx.lineTo(cs * 0.35, -cs * 0.4);
+    ctx.moveTo(cs * 0.27, -cs * 0.4);
+    ctx.lineTo(cs * 0.27, -cs * 0.48);
+    ctx.moveTo(cs * 0.33, -cs * 0.4);
+    ctx.lineTo(cs * 0.33, -cs * 0.48);
+    ctx.stroke();
+
+    // 感叹号（蛇靠近时）
+    ctx.restore();
+  }
+
+  hasFarmer(pos: Position): boolean {
+    return pos.x === this.farmerPos.x && pos.y === this.farmerPos.y;
+  }
+
+  getFarmerPos(): Position {
+    return { ...this.farmerPos };
   }
 }

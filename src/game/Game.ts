@@ -138,6 +138,17 @@ export class Game {
       }
     }
 
+    // 农夫碰撞 — 蛇碰到农夫减3节（农夫用锄头打蛇！）
+    if (this.terrain.hasFarmer(this.snake.head)) {
+      this.snake.grow(-3);
+      this.renderer.triggerHurt();
+      this.sound.play('die');
+      if (this.snake.length <= 1) {
+        this.gameOver();
+        return;
+      }
+    }
+
     // Check animal collision
     const inBush = this.terrain.isInBush(this.snake.head);
     const result = this.animalManager.checkCollision(this.snake.head, this.buffSystem);
