@@ -4,7 +4,7 @@ export interface GameConfig {
   cellSize: number;
   baseSpeed: number;
   wallCollision: boolean;
-  gameMode: 'classic' | 'speed' | 'battle';
+  gameMode: 'classic' | 'speed' | 'battle' | 'maze' | 'timeTrial' | 'survival';
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
