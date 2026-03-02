@@ -141,39 +141,44 @@ export class TerrainManager {
   }
 
   private generateBushes(): void {
-    const gw = this.config.gridWidth;
-    const gh = this.config.gridHeight;
-    const cs = this.cellSize; // 30px
+    const gw = this.config.gridWidth;   // 20
+    const gh = this.config.gridHeight;  // 20
+    const cs = this.cellSize;           // 30px
 
-    // 9条灌木：2长(~100×20px=3.3×0.67格) + 3中(~60×20px=2×0.67格) + 4短(~30×20px=1×0.67格)
-    const bushConfigs: Array<{ widthCells: number; heightCells: number }> = [
-      // 2条长灌木 (~100×20px → 3.3×0.67格，取4×1)
-      { widthCells: 4, heightCells: 1 },
-      { widthCells: 4, heightCells: 1 },
-      // 3条中灌木 (~60×20px → 2×0.67格，取2×1)
-      { widthCells: 2, heightCells: 1 },
-      { widthCells: 2, heightCells: 1 },
-      { widthCells: 2, heightCells: 1 },
-      // 4条短灌木 (~30×20px → 1×0.67格，取1×1)
-      { widthCells: 1, heightCells: 1 },
-      { widthCells: 1, heightCells: 1 },
-      { widthCells: 1, heightCells: 1 },
-      { widthCells: 1, heightCells: 1 },
+    // 用户指定像素尺寸：2长(100×20) + 3中(60×20) + 4短(30×20)
+    // 转为格子数（向上取整确保覆盖），高度至少1格
+    const bushConfigs: Array<{ pxW: number; pxH: number; nearRiver: boolean }> = [
+      // 2条长灌木 100×20px
+      { pxW: 100, pxH: 20, nearRiver: false },
+      { pxW: 100, pxH: 20, nearRiver: false },
+      // 3条中灌木 60×20px
+      { pxW: 60, pxH: 20, nearRiver: true },
+      { pxW: 60, pxH: 20, nearRiver: true },
+      { pxW: 60, pxH: 20, nearRiver: false },
+      // 4条短灌木 30×20px - 优先靠近河流
+      { pxW: 30, pxH: 20, nearRiver: true },
+      { pxW: 30, pxH: 20, nearRiver: true },
+      { pxW: 30, pxH: 20, nearRiver: true },
+      { pxW: 30, pxH: 20, nearRiver: false },
     ];
 
     for (const cfg of bushConfigs) {
-      // 随机决定水平或垂直放置
+      // 随机水平或垂直
       const isHorizontal = Math.random() > 0.5;
-      const w = isHorizontal ? cfg.widthCells : cfg.heightCells;
-      const h = isHorizontal ? cfg.heightCells : cfg.widthCells;
+      const cellsW = isHorizontal ? Math.ceil(cfg.pxW / cs) : Math.ceil(cfg.pxH / cs);
+      const cellsH = isHorizontal ? Math.ceil(cfg.pxH / cs) : Math.ceil(cfg.pxW / cs);
+      const w = Math.max(1, cellsW);
+      const h = Math.max(1, cellsH);
 
       let gx: number, gy: number;
       let attempts = 0;
       let placed = false;
+
       do {
         gx = Math.floor(Math.random() * (gw - w));
         gy = Math.floor(Math.random() * (gh - h));
-        // 检查灌木每一格都不在河里
+
+        // 检查不在河里
         let overlapsRiver = false;
         for (let dx = 0; dx < w && !overlapsRiver; dx++) {
           for (let dy = 0; dy < h && !overlapsRiver; dy++) {
@@ -182,29 +187,44 @@ export class TerrainManager {
             }
           }
         }
-        if (!overlapsRiver) {
-          placed = true;
-          break;
+        if (overlapsRiver) { attempts++; continue; }
+
+        // 需要靠近河流的灌木：至少有一个相邻格在河里
+        if (cfg.nearRiver && attempts < 25) {
+          let nearRiver = false;
+          for (let dx = -1; dx <= w && !nearRiver; dx++) {
+            for (let dy = -1; dy <= h && !nearRiver; dy++) {
+              if (this.isInRiver({ x: gx + dx, y: gy + dy })) nearRiver = true;
+            }
+          }
+          if (!nearRiver) { attempts++; continue; }
         }
-      } while (++attempts < 30);
+
+        placed = true;
+        break;
+      } while (++attempts < 40);
       if (!placed) continue;
 
-      // 生成装饰圆
+      // 生成装饰圆（用于渲染）
       const circles: Bush['circles'] = [];
       const greens = ['#1a8c0e', '#22aa15', '#158a08', '#2ebc1e', '#0d7a05'];
-      const numCircles = (w + h) * 2 + 3;
+      // 圆的数量与灌木像素长度成正比
+      const mainDim = Math.max(cfg.pxW, cfg.pxH);
+      const numCircles = Math.max(3, Math.ceil(mainDim / 15));
 
       for (let c = 0; c < numCircles; c++) {
         const along = (c / numCircles) - 0.5;
-        const cross = (Math.random() - 0.5) * 0.6;
+        const cross = (Math.random() - 0.5) * 0.5;
+        const isWide = (isHorizontal && cfg.pxW >= cfg.pxH) || (!isHorizontal && cfg.pxW < cfg.pxH);
         circles.push({
-          ox: (isHorizontal ? along : cross) * w * cs,
-          oy: (isHorizontal ? cross : along) * h * cs,
-          r: cs * (0.4 + Math.random() * 0.35),
+          ox: isWide ? along * w * cs : cross * w * cs,
+          oy: isWide ? cross * h * cs : along * h * cs,
+          r: cs * (0.35 + Math.random() * 0.3),
           color: greens[Math.floor(Math.random() * greens.length)],
         });
       }
 
+      // 存储实际像素尺寸供渲染使用
       this.bushes.push({ gridX: gx, gridY: gy, width: w, height: h, circles });
     }
   }
