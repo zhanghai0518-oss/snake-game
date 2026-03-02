@@ -1,5 +1,5 @@
 import { Snake } from './Snake';
-import { Food } from './Food';
+// Food已被AnimalManager替代
 import { AnimalManager } from './AnimalManager';
 import { BuffSystem, BuffType } from './BuffSystem';
 import { GameConfig, DEFAULT_CONFIG } from '../config/GameConfig';
@@ -19,7 +19,7 @@ export class Game {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private snake: Snake;
-  private foods: Food[] = [];
+  // legacy foods removed — AnimalManager handles all food
   private state: GameState = GameState.MENU;
   private config: GameConfig;
   private input: InputManager;
@@ -47,7 +47,6 @@ export class Game {
     this.animalManager = new AnimalManager(this.config);
     this.buffSystem = new BuffSystem();
     
-    this.spawnFood();
     this.setupEventListeners();
   }
 
@@ -142,18 +141,7 @@ export class Game {
       }
     }
 
-    // Check legacy food collision (keep backward compat)
-    for (let i = this.foods.length - 1; i >= 0; i--) {
-      if (this.snake.headAt(this.foods[i].position)) {
-        const food = this.foods[i];
-        this.snake.grow(food.growAmount);
-        this.score.add(food.points);
-        this.sound.play('eat');
-        this.foods.splice(i, 1);
-        this.spawnFood();
-        this.adjustSpeed();
-      }
-    }
+    // Legacy food removed — AnimalManager handles all collisions above
 
     // Check wall collision
     if (this.config.wallCollision && !this.buffSystem.has(BuffType.GHOST) && this.snake.hitsWall()) {
@@ -176,7 +164,6 @@ export class Game {
   private render(): void {
     this.renderer.clear();
     this.renderer.drawGrid();
-    this.foods.forEach(f => this.renderer.drawFood(f));
 
     // Draw animals
     for (const animal of this.animalManager.getAnimals()) {
@@ -194,14 +181,7 @@ export class Game {
     }
   }
 
-  private spawnFood(): void {
-    const food = Food.spawn(this.config, this.snake.body);
-    this.foods.push(food);
-    
-    if (Math.random() < 0.15 && this.foods.length < 3) {
-      this.foods.push(Food.spawnSpecial(this.config, this.snake.body));
-    }
-  }
+  // spawnFood removed — AnimalManager handles all spawning
 
   private adjustSpeed(): void {
     const snakeLength = this.snake.length;
@@ -226,14 +206,13 @@ export class Game {
 
   restart(): void {
     this.snake = new Snake(this.config);
-    this.foods = [];
+    // foods removed
     this.score.reset();
     this.gameSpeed = this.config.baseSpeed;
     this.accumulator = 0;
     this.animalManager.reset();
     this.buffSystem.clear();
     this.poisonTimer = 0;
-    this.spawnFood();
     this.start();
   }
 

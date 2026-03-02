@@ -154,8 +154,9 @@ export class Renderer {
       const cx = (seg.x + 0.5) * cs;
       const cy = (seg.y + 0.5) * cs;
 
-      // 吞咽鼓起效果
-      const isSwallow = this.swallowTimer > 0 && i <= 2 && i > 0;
+      // 吞咽鼓起效果 — 波浪式从头向尾传递
+      const swallowWavePos = this.swallowTimer > 0 ? Math.floor((0.4 - this.swallowTimer) / 0.4 * 8) : -1;
+      const isSwallow = this.swallowTimer > 0 && i > 0 && Math.abs(i - swallowWavePos) <= 1;
       const bulge = isSwallow ? 1.3 : 1.0;
       const halfSize = (cs * 0.4) * bulge;
 
@@ -236,71 +237,94 @@ export class Renderer {
     ctx.translate(cx, cy);
     ctx.rotate(angle);
 
-    const headSize = cs * 0.48;
+    const headSize = cs * 0.55;  // 更大的蛇头
 
-    // 三角形蛇头
-    const headColor = flashRed ? '#ff3333' : '#ffcc00';  // 黄色蛇头
+    // 嘴巴张合角度（吃东西时张大嘴）
+    const isEating = this.swallowTimer > 0.2;  // 吞咽前期=张嘴
+    const jawAngle = isEating ? 0.45 : 0.08;   // 吃东西时大张嘴，平时微微张开
+
+    const headColor = flashRed ? '#ff3333' : '#ffcc00';
+
+    // 上颚
     ctx.fillStyle = headColor;
     ctx.beginPath();
-    ctx.moveTo(headSize, 0);                              // 尖端（前方）
-    ctx.lineTo(-headSize * 0.7, -headSize * 0.8);         // 左后
-    ctx.lineTo(-headSize * 0.5, 0);                       // 后中凹
-    ctx.lineTo(-headSize * 0.7, headSize * 0.8);          // 右后
+    ctx.moveTo(headSize * 1.1, 0);                         // 嘴尖
+    ctx.lineTo(-headSize * 0.6, -headSize * 0.85);          // 左后上
+    ctx.lineTo(-headSize * 0.4, -headSize * 0.1);           // 后中上
+    ctx.quadraticCurveTo(headSize * 0.3, -headSize * jawAngle, headSize * 1.1, 0);
     ctx.closePath();
     ctx.fill();
 
-    // 蛇头高光
-    ctx.fillStyle = flashRed ? '#ff6666' : '#44ffaa';
+    // 下颚
+    ctx.fillStyle = flashRed ? '#dd2222' : '#e6b800';
     ctx.beginPath();
-    ctx.moveTo(headSize * 0.6, 0);
-    ctx.lineTo(-headSize * 0.2, -headSize * 0.4);
-    ctx.lineTo(-headSize * 0.1, 0);
-    ctx.lineTo(-headSize * 0.2, headSize * 0.4);
+    ctx.moveTo(headSize * 1.1, 0);
+    ctx.lineTo(-headSize * 0.6, headSize * 0.85);
+    ctx.lineTo(-headSize * 0.4, headSize * 0.1);
+    ctx.quadraticCurveTo(headSize * 0.3, headSize * jawAngle, headSize * 1.1, 0);
     ctx.closePath();
     ctx.fill();
 
-    // 眼睛（朝运动方向看 - 在蛇头坐标系中向前偏移）
-    const eyeOffX = headSize * 0.1;
-    const eyeOffY = headSize * 0.45;
-    const eyeR = cs * 0.09;
-    const pupilR = cs * 0.05;
+    // 嘴巴内部（张嘴时可见）
+    if (isEating) {
+      ctx.fillStyle = '#cc3333';
+      ctx.beginPath();
+      ctx.ellipse(headSize * 0.3, 0, headSize * 0.4, headSize * jawAngle * 1.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 蛇头鳞片高光
+    ctx.fillStyle = flashRed ? '#ff6666' : 'rgba(255,255,200,0.3)';
+    ctx.beginPath();
+    ctx.moveTo(headSize * 0.5, -headSize * 0.1);
+    ctx.lineTo(-headSize * 0.1, -headSize * 0.5);
+    ctx.lineTo(-headSize * 0.2, -headSize * 0.2);
+    ctx.lineTo(headSize * 0.2, -headSize * 0.05);
+    ctx.closePath();
+    ctx.fill();
+
+    // 眼睛（大而有神）
+    const eyeOffX = headSize * 0.0;
+    const eyeOffY = headSize * 0.5;
+    const eyeR = cs * 0.12;     // 更大的眼睛
+    const pupilR = cs * 0.06;
 
     // 左眼
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#ffff44';  // 黄色蛇眼
     ctx.beginPath();
     ctx.arc(eyeOffX, -eyeOffY, eyeR, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#111111';
+    ctx.fillStyle = '#111111';  // 竖瞳
     ctx.beginPath();
-    ctx.arc(eyeOffX + pupilR * 0.3, -eyeOffY, pupilR, 0, Math.PI * 2);
+    ctx.ellipse(eyeOffX + pupilR * 0.2, -eyeOffY, pupilR * 0.4, pupilR, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // 右眼
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#ffff44';
     ctx.beginPath();
     ctx.arc(eyeOffX, eyeOffY, eyeR, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#111111';
     ctx.beginPath();
-    ctx.arc(eyeOffX + pupilR * 0.3, eyeOffY, pupilR, 0, Math.PI * 2);
+    ctx.ellipse(eyeOffX + pupilR * 0.2, eyeOffY, pupilR * 0.4, pupilR, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 红色分叉舌头（伸缩动画）
-    const tongueLen = cs * 0.3 * (0.5 + 0.5 * Math.sin(this.tonguePhase));
-    const tongueStart = headSize * 0.9;
-    ctx.strokeStyle = '#ff2222';
-    ctx.lineWidth = 1.5;
-    // 左叉
-    ctx.beginPath();
-    ctx.moveTo(tongueStart, 0);
-    ctx.lineTo(tongueStart + tongueLen * 0.7, 0);
-    ctx.lineTo(tongueStart + tongueLen, -cs * 0.06);
-    ctx.stroke();
-    // 右叉
-    ctx.beginPath();
-    ctx.moveTo(tongueStart + tongueLen * 0.7, 0);
-    ctx.lineTo(tongueStart + tongueLen, cs * 0.06);
-    ctx.stroke();
+    // 红色分叉舌头（从嘴里伸出，吃东西时缩回）
+    if (!isEating) {
+      const tongueLen = cs * 0.45 * (0.5 + 0.5 * Math.sin(this.tonguePhase));
+      const tongueStart = headSize * 1.0;
+      ctx.strokeStyle = '#ff2222';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(tongueStart, 0);
+      ctx.lineTo(tongueStart + tongueLen * 0.65, 0);
+      ctx.lineTo(tongueStart + tongueLen, -cs * 0.1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(tongueStart + tongueLen * 0.65, 0);
+      ctx.lineTo(tongueStart + tongueLen, cs * 0.1);
+      ctx.stroke();
+    }
 
     ctx.restore();
   }
