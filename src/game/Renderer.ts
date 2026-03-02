@@ -513,97 +513,165 @@ export class Renderer {
   }
 
   private drawMouse(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
-    const shake = Math.sin(t * 15) * 0.5; // 偶尔抖动
+    const shake = Math.sin(t * 15) * 1;
     const mx = x + shake;
-    const r = cs * 0.3;
-    // 灰色身体
-    ctx.fillStyle = '#999';
+    const r = cs * 0.38;
+    // 灰色圆身体
+    ctx.fillStyle = '#a0a0a0';
     ctx.beginPath();
-    ctx.ellipse(mx, y, r, r * 0.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(mx, y + r * 0.1, r, r * 0.85, 0, 0, Math.PI * 2);
     ctx.fill();
-    // 大圆耳朵
-    ctx.fillStyle = '#bbb';
-    ctx.beginPath(); ctx.arc(mx - r * 0.6, y - r * 0.7, r * 0.45, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(mx + r * 0.6, y - r * 0.7, r * 0.45, 0, Math.PI * 2); ctx.fill();
-    // 耳朵内部粉色
-    ctx.fillStyle = '#eaa';
-    ctx.beginPath(); ctx.arc(mx - r * 0.6, y - r * 0.7, r * 0.25, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(mx + r * 0.6, y - r * 0.7, r * 0.25, 0, Math.PI * 2); ctx.fill();
-    // 眼睛
-    ctx.fillStyle = '#222';
-    ctx.beginPath(); ctx.arc(mx - r * 0.25, y - r * 0.1, 2, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(mx + r * 0.25, y - r * 0.1, 2, 0, Math.PI * 2); ctx.fill();
-    // 鼻子
-    ctx.fillStyle = '#e88';
-    ctx.beginPath(); ctx.arc(mx, y + r * 0.15, 2, 0, Math.PI * 2); ctx.fill();
-    // 尾巴
-    ctx.strokeStyle = '#aaa';
+    // 描边让轮廓清晰
+    ctx.strokeStyle = '#666';
     ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // 大圆耳朵（鼠标最显著特征）
+    ctx.fillStyle = '#c0c0c0';
+    for (const sx of [-1, 1]) {
+      ctx.beginPath(); ctx.arc(mx + sx * r * 0.65, y - r * 0.6, r * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#888'; ctx.lineWidth = 1.2; ctx.stroke();
+      // 耳朵内粉色
+      ctx.fillStyle = '#f5b0b0';
+      ctx.beginPath(); ctx.arc(mx + sx * r * 0.65, y - r * 0.6, r * 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#c0c0c0';
+    }
+    // 大圆眼睛
+    for (const sx of [-1, 1]) {
+      ctx.fillStyle = '#111';
+      ctx.beginPath(); ctx.arc(mx + sx * r * 0.3, y - r * 0.05, r * 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(mx + sx * r * 0.33, y - r * 0.1, r * 0.06, 0, Math.PI * 2); ctx.fill();
+    }
+    // 粉色大鼻子
+    ctx.fillStyle = '#ff8899';
+    ctx.beginPath(); ctx.arc(mx, y + r * 0.25, r * 0.13, 0, Math.PI * 2); ctx.fill();
+    // 胡须
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
+    for (const sx of [-1, 1]) {
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(mx + sx * r * 0.15, y + r * 0.2);
+        ctx.lineTo(mx + sx * r * 0.8, y + r * (0.1 + i * 0.15));
+        ctx.stroke();
+      }
+    }
+    // 长尾巴
+    ctx.strokeStyle = '#d09090';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(mx, y + r * 0.6);
-    ctx.quadraticCurveTo(mx + r, y + r * 1.2, mx + r * 0.5, y + r * 1.5);
+    ctx.moveTo(mx, y + r * 0.8);
+    ctx.quadraticCurveTo(mx + r * 1.2, y + r * 1.3, mx + r * 0.8, y + r * 1.8);
     ctx.stroke();
   }
 
   private drawFrog(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
-    const bounce = Math.abs(Math.sin(t * 4)) * 3;
-    const squash = 1 + Math.sin(t * 4) * 0.1;
-    const r = cs * 0.32;
-    // 绿色身体
-    ctx.fillStyle = '#44bb44';
+    const bounce = Math.abs(Math.sin(t * 4)) * cs * 0.08;
+    const squash = 1 + Math.sin(t * 4) * 0.12;
+    const r = cs * 0.38;
+    const by = y - bounce;
+    // 后腿（先画，被身体遮挡）
+    ctx.fillStyle = '#33aa33';
+    for (const sx of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(x + sx * r * 0.75, by + r * 0.5, r * 0.35, r * 0.2, sx * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // 绿色胖身体
+    ctx.fillStyle = '#44cc44';
     ctx.beginPath();
-    ctx.ellipse(x, y - bounce, r * squash, r / squash, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, by, r * squash, r * 0.85 / squash, 0, 0, Math.PI * 2);
     ctx.fill();
-    // 大鼓眼
-    const ey = y - bounce - r * 0.7;
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath(); ctx.arc(x - r * 0.45, ey, r * 0.35, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x + r * 0.45, ey, r * 0.35, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#222';
-    ctx.beginPath(); ctx.arc(x - r * 0.45, ey, r * 0.18, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x + r * 0.45, ey, r * 0.18, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#229922'; ctx.lineWidth = 1.5; ctx.stroke();
+    // 浅色肚子
+    ctx.fillStyle = '#aaffaa';
+    ctx.beginPath();
+    ctx.ellipse(x, by + r * 0.2, r * 0.55, r * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 超大鼓眼（青蛙标志性特征！）
+    const ey = by - r * 0.65;
+    for (const sx of [-1, 1]) {
+      // 眼球突起
+      ctx.fillStyle = '#44cc44';
+      ctx.beginPath(); ctx.arc(x + sx * r * 0.5, ey - r * 0.15, r * 0.38, 0, Math.PI * 2); ctx.fill();
+      // 白色眼白
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(x + sx * r * 0.5, ey, r * 0.32, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#229922'; ctx.lineWidth = 1.2; ctx.stroke();
+      // 大黑瞳
+      ctx.fillStyle = '#111';
+      ctx.beginPath(); ctx.arc(x + sx * r * 0.5, ey, r * 0.18, 0, Math.PI * 2); ctx.fill();
+      // 高光
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(x + sx * r * 0.55, ey - r * 0.1, r * 0.08, 0, Math.PI * 2); ctx.fill();
+    }
     // 红腮帮
-    ctx.fillStyle = 'rgba(255,100,100,0.4)';
-    ctx.beginPath(); ctx.arc(x - r * 0.7, y - bounce + r * 0.1, r * 0.2, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x + r * 0.7, y - bounce + r * 0.1, r * 0.2, 0, Math.PI * 2); ctx.fill();
-    // 微笑
+    ctx.fillStyle = 'rgba(255,120,120,0.45)';
+    for (const sx of [-1, 1]) {
+      ctx.beginPath(); ctx.arc(x + sx * r * 0.75, by + r * 0.15, r * 0.22, 0, Math.PI * 2); ctx.fill();
+    }
+    // 大嘴微笑
     ctx.strokeStyle = '#228822';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(x, y - bounce + r * 0.1, r * 0.35, 0.2, Math.PI - 0.2); ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, by + r * 0.15, r * 0.45, 0.15, Math.PI - 0.15); ctx.stroke();
   }
 
   private drawRabbit(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
-    const r = cs * 0.3;
-    const earWave = Math.sin(t * 3) * 0.15;
-    // 白色身体
+    const r = cs * 0.38;
+    const earWave = Math.sin(t * 3) * 0.2;
+    // 圆白身体
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(x, y + r * 0.1, r * 0.85, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1.2; ctx.stroke();
+    // 超长耳朵（兔子最显著特征！）
+    for (const sx of [-1, 1]) {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(x + sx * r * 0.38, y - r * 1.3, r * 0.22, r * 0.75, sx * earWave, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1; ctx.stroke();
+      // 耳朵内粉色
+      ctx.fillStyle = '#ffbbcc';
+      ctx.beginPath();
+      ctx.ellipse(x + sx * r * 0.38, y - r * 1.25, r * 0.12, r * 0.55, sx * earWave, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // 大红宝石眼（兔子特征！）
+    for (const sx of [-1, 1]) {
+      ctx.fillStyle = '#ff3355';
+      ctx.beginPath(); ctx.arc(x + sx * r * 0.3, y - r * 0.05, r * 0.16, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(x + sx * r * 0.33, y - r * 0.1, r * 0.06, 0, Math.PI * 2); ctx.fill();
+    }
+    // 粉色三角鼻子
+    ctx.fillStyle = '#ff99aa';
+    ctx.beginPath();
+    ctx.moveTo(x, y + r * 0.1);
+    ctx.lineTo(x - r * 0.1, y + r * 0.22);
+    ctx.lineTo(x + r * 0.1, y + r * 0.22);
+    ctx.closePath(); ctx.fill();
+    // Y形嘴
+    ctx.strokeStyle = '#ddaaaa';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y + r * 0.22);
+    ctx.lineTo(x, y + r * 0.35);
+    ctx.moveTo(x - r * 0.12, y + r * 0.45);
+    ctx.lineTo(x, y + r * 0.35);
+    ctx.lineTo(x + r * 0.12, y + r * 0.45);
+    ctx.stroke();
+    // 两颗大门牙
     ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-    // 长耳朵
-    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 0.8;
     ctx.beginPath();
-    ctx.ellipse(x - r * 0.35, y - r * 1.5, r * 0.2, r * 0.65, earWave - 0.1, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.roundRect(x - r * 0.1, y + r * 0.35, r * 0.09, r * 0.15, 1);
+    ctx.fill(); ctx.stroke();
     ctx.beginPath();
-    ctx.ellipse(x + r * 0.35, y - r * 1.5, r * 0.2, r * 0.65, -earWave + 0.1, 0, Math.PI * 2);
-    ctx.fill();
-    // 耳朵内粉色
-    ctx.fillStyle = '#ffaaaa';
-    ctx.beginPath();
-    ctx.ellipse(x - r * 0.35, y - r * 1.5, r * 0.1, r * 0.45, earWave - 0.1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(x + r * 0.35, y - r * 1.5, r * 0.1, r * 0.45, -earWave + 0.1, 0, Math.PI * 2);
-    ctx.fill();
-    // 眼睛
-    ctx.fillStyle = '#ff4466';
-    ctx.beginPath(); ctx.arc(x - r * 0.25, y - r * 0.15, 2.5, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x + r * 0.25, y - r * 0.15, 2.5, 0, Math.PI * 2); ctx.fill();
-    // 粉色鼻子
-    ctx.fillStyle = '#ff8899';
-    ctx.beginPath(); ctx.arc(x, y + r * 0.1, 2.5, 0, Math.PI * 2); ctx.fill();
-    // 短尾巴
-    ctx.fillStyle = '#eee';
-    ctx.beginPath(); ctx.arc(x, y + r * 0.95, r * 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.roundRect(x + r * 0.01, y + r * 0.35, r * 0.09, r * 0.15, 1);
+    ctx.fill(); ctx.stroke();
+    // 胖尾巴
+    ctx.fillStyle = '#f0f0f0';
+    ctx.beginPath(); ctx.arc(x, y + r * 0.85, r * 0.22, 0, Math.PI * 2); ctx.fill();
   }
 
   private drawSnakeEgg(ctx: CanvasRenderingContext2D, x: number, y: number, cs: number, t: number): void {
