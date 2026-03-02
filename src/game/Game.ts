@@ -30,7 +30,7 @@ export class Game {
   private accumulator: number = 0;
   private gameSpeed: number = 500;
 
-  // 动物食物链系统
+  // Animal food chain system
   private animalManager: AnimalManager;
   private buffSystem: BuffSystem;
   private poisonTimer: number = 0;
@@ -73,11 +73,11 @@ export class Game {
     this.lastTime = currentTime;
     this.accumulator += deltaTime;
 
-    // 每帧更新动物AI和buff计时
+    // Update animals and buffs every frame
     this.animalManager.update(deltaTime, this.snake.head, this.snake.body, this.buffSystem);
     this.buffSystem.update(deltaTime);
 
-    // 中毒tick：每秒-1节
+    // Poison tick: -1 per second while poisoned
     if (this.buffSystem.has(BuffType.POISON)) {
       this.poisonTimer += deltaTime;
       if (this.poisonTimer >= 1000) {
@@ -92,7 +92,7 @@ export class Game {
       this.poisonTimer = 0;
     }
 
-    // 眩晕时不移动，加速时更快
+    // Fixed timestep game logic
     const effectiveSpeed = this.buffSystem.has(BuffType.STUN)
       ? Infinity
       : this.buffSystem.has(BuffType.SPEED_BOOST)
@@ -116,12 +116,12 @@ export class Game {
 
     this.snake.move();
 
-    // 幽灵buff：穿墙
+    // Ghost buff: wrap around walls
     if (this.buffSystem.has(BuffType.GHOST)) {
       this.snake.wrapAround();
     }
 
-    // 动物碰撞检测
+    // Check animal collision
     const result = this.animalManager.checkCollision(this.snake.head, this.buffSystem);
     if (result) {
       if (result.growAmount !== 0) {
@@ -142,7 +142,7 @@ export class Game {
       }
     }
 
-    // 传统食物碰撞（保持向后兼容）
+    // Check legacy food collision (keep backward compat)
     for (let i = this.foods.length - 1; i >= 0; i--) {
       if (this.snake.headAt(this.foods[i].position)) {
         const food = this.foods[i];
@@ -155,18 +155,19 @@ export class Game {
       }
     }
 
-    // 墙壁碰撞（幽灵状态免疫）
+    // Check wall collision
     if (this.config.wallCollision && !this.buffSystem.has(BuffType.GHOST) && this.snake.hitsWall()) {
       this.gameOver();
       return;
     }
 
-    // 自身碰撞（无敌状态免疫）
+    // Check self collision (invincible ignores)
     if (!this.buffSystem.has(BuffType.INVINCIBLE) && this.snake.hitsSelf()) {
       this.gameOver();
       return;
     }
 
+    // Wrap around if no wall collision
     if (!this.config.wallCollision) {
       this.snake.wrapAround();
     }
@@ -177,15 +178,17 @@ export class Game {
     this.renderer.drawGrid();
     this.foods.forEach(f => this.renderer.drawFood(f));
 
-    // 绘制动物
+    // Draw animals
     for (const animal of this.animalManager.getAnimals()) {
       this.renderer.drawAnimal(animal);
     }
 
     this.renderer.drawSnake(this.snake);
     this.renderer.drawUI(this.score.current, this.score.high, this.state);
-    this.renderer.drawBuffs(this.buffSystem.getAll());
     
+    // Draw active buffs
+    this.renderer.drawBuffs(this.buffSystem.getAll());
+
     if (this.state === GameState.GAME_OVER) {
       this.renderer.drawGameOver(this.score.current);
     }
