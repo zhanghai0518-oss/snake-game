@@ -1,5 +1,7 @@
 import { Snake } from './Snake';
 import { Food } from './Food';
+import { Animal, AnimalType } from './AnimalManager';
+import { Buff, BuffType } from './BuffSystem';
 import { GameConfig } from '../config/GameConfig';
 import { GameState } from './Game';
 
@@ -112,6 +114,72 @@ export class Renderer {
       this.ctx.font = 'bold 32px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.fillText('⏸ 暂停', this.ctx.canvas.width / 2, this.ctx.canvas.height / 2);
+    }
+  }
+
+  drawAnimal(animal: Animal): void {
+    const x = (animal.position.x + 0.5) * this.cellSize;
+    const y = (animal.position.y + 0.5) * this.cellSize;
+
+    if (animal.def.type === AnimalType.POISON_FROG) {
+      this.ctx.globalAlpha = animal.flashOn ? 1.0 : 0.3;
+      this.ctx.shadowColor = '#aa00ff';
+      this.ctx.shadowBlur = 10;
+    } else if (animal.def.category === 'predator') {
+      this.ctx.shadowColor = '#ff4444';
+      this.ctx.shadowBlur = 8;
+    } else if (animal.def.category === 'powerup') {
+      this.ctx.shadowColor = '#ffdd00';
+      this.ctx.shadowBlur = 12;
+    } else {
+      this.ctx.shadowColor = '#44ff44';
+      this.ctx.shadowBlur = 8;
+    }
+
+    if (animal.frozen) {
+      this.ctx.globalAlpha = 0.5;
+    }
+
+    this.ctx.font = `${this.cellSize * 0.8}px Arial`;
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+
+    if (animal.def.type === AnimalType.POISON_FROG) {
+      this.ctx.fillText('🐸', x, y);
+      this.ctx.font = `${this.cellSize * 0.4}px Arial`;
+      this.ctx.fillText('💀', x + this.cellSize * 0.25, y - this.cellSize * 0.2);
+    } else {
+      this.ctx.fillText(animal.def.emoji, x, y);
+    }
+
+    this.ctx.shadowBlur = 0;
+    this.ctx.globalAlpha = 1.0;
+  }
+
+  drawBuffs(buffs: Buff[]): void {
+    if (buffs.length === 0) return;
+    let y = 45;
+
+    this.ctx.font = '12px Arial';
+    this.ctx.textAlign = 'left';
+
+    const labels: Record<string, string> = {
+      [BuffType.SPEED_BOOST]: '⚡ 加速',
+      [BuffType.INVINCIBLE]: '💎 无敌',
+      [BuffType.MAGNET]: '🧲 磁铁',
+      [BuffType.FREEZE_ENEMIES]: '❄️ 冰冻',
+      [BuffType.FIRE]: '🔥 火焰',
+      [BuffType.GHOST]: '👻 穿墙',
+      [BuffType.POISON]: '☠️ 中毒',
+      [BuffType.STUN]: '💫 眩晕',
+    };
+
+    for (const buff of buffs) {
+      const label = labels[buff.type] || buff.type;
+      const secs = Math.ceil(buff.remainingMs / 1000);
+      this.ctx.fillStyle = buff.type === BuffType.POISON || buff.type === BuffType.STUN ? '#ff6666' : '#66ffaa';
+      this.ctx.fillText(`${label} ${secs}s`, 10, y);
+      y += 16;
     }
   }
 
