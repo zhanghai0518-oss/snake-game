@@ -89,9 +89,12 @@ export class Animal {
         break;
 
       case AnimalType.FROG:
-        if (this.aiTimer >= 2000) {
+        // Frog stays still for 15 seconds, then jumps to a random position
+        if (this.aiTimer >= 15000) {
           this.aiTimer = 0;
-          this.moveRandom();
+          // Jump to a completely random position
+          this.position.x = Math.floor(Math.random() * this.config.gridWidth);
+          this.position.y = Math.floor(Math.random() * this.config.gridHeight);
         }
         break;
 

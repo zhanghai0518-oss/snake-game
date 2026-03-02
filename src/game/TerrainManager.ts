@@ -626,24 +626,27 @@ export class TerrainManager {
 
   // ==================== 农夫系统 ====================
 
+  private farmerPatrolIndex: number = 0;
+  private farmerPatrolDir: number = 1;
+
   private renderFarmer(ctx: CanvasRenderingContext2D, time: number): void {
-    // 农夫每3秒移动一格，随机巡逻
+    if (!this.farmerEnabled) return;
+
+    // Farmer patrols along river edge cells
     this.farmerTimer += 0.016; // ~60fps
-    if (this.farmerTimer >= 3) {
+    if (this.farmerTimer >= 2 && this.riverEdgeCells.length > 0) {
       this.farmerTimer = 0;
-      // 随机移动
-      const dirs = [
-        { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
-        { x: 1, y: 1 }, { x: -1, y: -1 },
-      ];
-      const d = dirs[Math.floor(Math.random() * dirs.length)];
-      const nx = this.farmerPos.x + d.x;
-      const ny = this.farmerPos.y + d.y;
-      if (nx >= 0 && nx < this.config.gridWidth && ny >= 0 && ny < this.config.gridHeight) {
-        this.farmerPos.x = nx;
-        this.farmerPos.y = ny;
-        this.farmerDir = d.x >= 0 ? 1 : -1;
+      this.farmerPatrolIndex += this.farmerPatrolDir;
+      if (this.farmerPatrolIndex >= this.riverEdgeCells.length - 1) {
+        this.farmerPatrolDir = -1;
+      } else if (this.farmerPatrolIndex <= 0) {
+        this.farmerPatrolDir = 1;
       }
+      const idx = Math.max(0, Math.min(this.farmerPatrolIndex, this.riverEdgeCells.length - 1));
+      const target = this.riverEdgeCells[idx];
+      this.farmerDir = target.x >= this.farmerPos.x ? 1 : -1;
+      this.farmerPos.x = target.x;
+      this.farmerPos.y = target.y;
     }
 
     const cs = this.cellSize;

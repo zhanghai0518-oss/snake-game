@@ -2,6 +2,7 @@ import { Snake } from './Snake';
 // Food已被AnimalManager替代
 import { AnimalManager } from './AnimalManager';
 import { BuffSystem, BuffType } from './BuffSystem';
+import { BossManager } from './BossManager';
 import { GameConfig, DEFAULT_CONFIG } from '../config/GameConfig';
 import { InputManager } from './InputManager';
 import { LevelManager } from './LevelManager';
@@ -44,6 +45,10 @@ export class Game {
   private levelManager: LevelManager;
   private levelUpPauseTimer: number = 0;
 
+  // Boss system
+  private bossManager: BossManager;
+  private currentLevelNum: number = 1;
+
   constructor(canvas: HTMLCanvasElement, config: Partial<GameConfig> = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -57,6 +62,8 @@ export class Game {
     this.buffSystem = new BuffSystem();
     this.terrain = new TerrainManager(this.config);
     this.levelManager = new LevelManager();
+    this.bossManager = new BossManager(this.config);
+    this.bossManager.setBezierPointFn((t) => this.terrain.getBezierPoint(t));
     this.applyLevelConfig();
     
     this.setupEventListeners();
@@ -81,6 +88,7 @@ export class Game {
 
   private applyLevelConfig(): void {
     const level = this.levelManager.getCurrentLevel(this.score.current);
+    this.currentLevelNum = level.level;
     this.animalManager.setLevelFilter(
       level.availableAnimals,
       level.availableEnemies,
@@ -88,6 +96,14 @@ export class Game {
       level.scoreMultiplier,
     );
     this.gameSpeed = level.baseSpeed;
+    this.terrain.setLevel(level.level);
+    this.terrain.setFarmerEnabled(level.farmerEnabled);
+
+    // Spawn boss if level has one
+    if (level.hasBoss && level.bossType) {
+      this.bossManager.spawnBoss(level.bossType, level.level);
+      this.renderer.triggerBossWarning();
+    }
   }
 
   private gameLoop(currentTime: number): void {
@@ -107,9 +123,10 @@ export class Game {
 
     this.accumulator += deltaTime;
 
-    // Update animals and buffs every frame
+    // Update animals, buffs, and boss every frame
     this.animalManager.update(deltaTime, this.snake.head, this.snake.body, this.buffSystem, this.score.current);
     this.buffSystem.update(deltaTime);
+    this.bossManager.update(deltaTime / 1000);
 
     // Poison tick: -1 per second while poisoned
     if (this.buffSystem.has(BuffType.POISON)) {
@@ -157,23 +174,56 @@ export class Game {
       this.snake.wrapAround();
     }
 
-    // Crocodile damage in river
-    if (this.terrain.hasCrocodile(this.snake.head)) {
-      this.snake.grow(-2);
-      this.renderer.triggerHurt();
-      this.sound.play('die');
-      if (this.snake.length <= 1) {
-        this.gameOver();
-        return;
+    // Crocodile collision (length-based)
+    const crocResult = this.terrain.checkCrocodileCollision(this.snake.head, this.snake.length);
+    if (crocResult.hit) {
+      if (crocResult.type === 'eat') {
+        this.score.add(100);
+        this.snake.grow(2);
+        this.sound.play('eat');
+      } else if (crocResult.type === 'damage') {
+        this.snake.grow(-2);
+        this.renderer.triggerHurt();
+        this.sound.play('die');
+        if (this.snake.length <= 1) { this.gameOver(); return; }
       }
+      // 'immune' → do nothing
     }
 
-    // 农夫碰撞 — 蛇碰到农夫直接游戏结束
+    // 农夫碰撞 — 碰到农夫直接游戏结束
     if (this.terrain.hasFarmer(this.snake.head)) {
       this.renderer.triggerHurt();
       this.sound.play('die');
       this.gameOver();
       return;
+    }
+
+    // Boss collision
+    const bossResult = this.bossManager.checkCollision(this.snake.head, this.snake.length);
+    if (bossResult) {
+      const level = this.levelManager.getCurrentLevel(this.score.current);
+      switch (bossResult.type) {
+        case 'damage':
+          this.snake.grow(-(bossResult.damage || 5));
+          this.renderer.triggerHurt();
+          this.sound.play('die');
+          if (this.snake.length <= 1) { this.gameOver(); return; }
+          break;
+        case 'immune':
+          break;
+        case 'eat':
+        case 'kill':
+          this.score.add(bossResult.points || 200);
+          this.snake.grow(bossResult.growAmount || 3);
+          this.sound.play('eat');
+          if (level.bossType) {
+            this.bossManager.onBossDefeated(level.bossType, level.level);
+          }
+          break;
+        case 'hit_weak':
+          this.sound.play('eat');
+          break;
+      }
     }
 
     // Check animal collision
@@ -259,6 +309,12 @@ export class Game {
       this.ctx.restore();
     }
 
+    // Draw boss
+    const boss = this.bossManager.getBoss();
+    if (boss && boss.alive) {
+      this.renderer.drawBoss(boss);
+    }
+
     // Draw snake (with bush/river opacity)
     this.ctx.save();
     if (this.terrain.isInBush(this.snake.head)) {
@@ -320,8 +376,10 @@ export class Game {
     this.accumulator = 0;
     this.animalManager.reset();
     this.buffSystem.clear();
+    this.bossManager.reset();
     this.poisonTimer = 0;
     this.terrain = new TerrainManager(this.config);
+    this.bossManager.setBezierPointFn((t) => this.terrain.getBezierPoint(t));
     this.levelUpPauseTimer = 0;
     this.applyLevelConfig();
     this.start();

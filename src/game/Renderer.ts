@@ -2,6 +2,7 @@ import { Snake, Direction, Position } from './Snake';
 import { Food } from './Food';
 import { Animal, AnimalType } from './AnimalManager';
 import { Buff, BuffType } from './BuffSystem';
+import { Boss } from './Boss';
 import { GameConfig } from '../config/GameConfig';
 import { GameState } from './Game';
 import { ParticleSystem } from './ParticleSystem';
@@ -1294,6 +1295,333 @@ export class Renderer {
     }
   }
 
+
+  // ===================== BOSS渲染 =====================
+
+  drawBoss(boss: Boss): void {
+    if (!boss.alive) return;
+    switch (boss.type) {
+      case 'crocodile_king':
+        this.drawCrocodileKing(boss);
+        break;
+      case 'lion':
+        this.drawLion(boss);
+        break;
+      case 'dragon':
+        this.drawDragon(boss);
+        break;
+    }
+  }
+
+  private drawCrocodileKing(boss: Boss): void {
+    const ctx = this.ctx;
+    const cs = this.cellSize;
+    const cx = (boss.position.x + 1) * cs; // center of 2x2
+    const cy = (boss.position.y + 1) * cs;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // Large crocodile emoji (2x size)
+    const fontSize = cs * 1.6;
+    ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🐊', 0, 0);
+
+    // Crown on top
+    ctx.font = `${cs * 0.6}px "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+    ctx.fillText('👑', 0, -cs * 0.8);
+
+    // HP indicator
+    ctx.fillStyle = 'rgba(255,0,0,0.7)';
+    ctx.font = `bold ${cs * 0.35}px "PingFang SC", Arial`;
+    ctx.fillText('鳄鱼王', 0, cs * 1.0);
+
+    ctx.restore();
+  }
+
+  private drawLion(boss: Boss): void {
+    const ctx = this.ctx;
+    const cs = this.cellSize;
+    const bx = boss.position.x * cs;
+    const by = boss.position.y * cs;
+    const size = boss.size * cs;
+    const cx = bx + size / 2;
+    const cy = by + size / 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(boss.facingDir, 1);
+
+    // Body (brown)
+    ctx.fillStyle = '#C4872F';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 0.35, size * 0.28, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8B5E14';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Mane (darker brown circle behind head)
+    ctx.fillStyle = '#7B4513';
+    ctx.beginPath();
+    ctx.arc(size * 0.15, -size * 0.05, size * 0.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mane spikes
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const mx = size * 0.15 + Math.cos(a) * size * 0.28;
+      const my = -size * 0.05 + Math.sin(a) * size * 0.28;
+      ctx.fillStyle = i % 2 === 0 ? '#8B4513' : '#6B3510';
+      ctx.beginPath();
+      ctx.arc(mx, my, size * 0.06, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Head
+    ctx.fillStyle = '#D4952F';
+    ctx.beginPath();
+    ctx.arc(size * 0.15, -size * 0.05, size * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.arc(size * 0.22, -size * 0.1, size * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(size * 0.22, -size * 0.1, size * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Nose
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(size * 0.3, -size * 0.02, size * 0.03, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mouth
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(size * 0.27, size * 0.02, size * 0.06, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+
+    // Legs
+    ctx.fillStyle = '#C4872F';
+    for (const [lx, ly] of [[-0.2, 0.22], [-0.05, 0.22], [0.1, 0.22], [0.25, 0.22]]) {
+      ctx.beginPath();
+      ctx.roundRect((lx - 0.03) * size, ly * size, size * 0.06, size * 0.12, 3);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // TAIL with red weakness marker (drawn in world space, not flipped)
+    const tx = boss.tailPosition.x * cs + cs / 2;
+    const ty = boss.tailPosition.y * cs + cs / 2;
+
+    // Tail line
+    ctx.strokeStyle = '#C4872F';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - boss.facingDir * size * 0.35, cy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+
+    // Red weakness circle
+    const pulse = 0.8 + Math.sin(this.time * 6) * 0.2;
+    ctx.fillStyle = `rgba(255,0,0,${pulse})`;
+    ctx.beginPath();
+    ctx.arc(tx, ty, cs * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // "弱点" label
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${cs * 0.3}px "PingFang SC", Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('弱点', tx, ty);
+
+    // HP bar
+    this.drawBossHP(boss, cx, by - cs * 0.4);
+  }
+
+  private drawDragon(boss: Boss): void {
+    const ctx = this.ctx;
+    const cs = this.cellSize;
+    const bx = boss.position.x * cs;
+    const by = boss.position.y * cs;
+    const size = boss.size * cs;
+    const cx = bx + size / 2;
+    const cy = by + size / 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(boss.facingDir, 1);
+
+    // Wings
+    ctx.fillStyle = 'rgba(0,150,50,0.6)';
+    // Left wing
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.1, -size * 0.1);
+    ctx.bezierCurveTo(-size * 0.4, -size * 0.4, -size * 0.5, -size * 0.15, -size * 0.3, size * 0.05);
+    ctx.closePath();
+    ctx.fill();
+    // Right wing
+    ctx.beginPath();
+    ctx.moveTo(size * 0.1, -size * 0.1);
+    ctx.bezierCurveTo(size * 0.4, -size * 0.4, size * 0.5, -size * 0.15, size * 0.3, size * 0.05);
+    ctx.closePath();
+    ctx.fill();
+
+    // Body (green)
+    ctx.fillStyle = '#228B22';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 0.3, size * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#145214';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Scales pattern
+    ctx.fillStyle = '#1a7a1a';
+    for (let i = -3; i <= 3; i++) {
+      for (let j = -2; j <= 2; j++) {
+        ctx.beginPath();
+        ctx.arc(i * size * 0.06, j * size * 0.06, size * 0.025, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Head
+    ctx.fillStyle = '#2a9a2a';
+    ctx.beginPath();
+    ctx.ellipse(size * 0.22, -size * 0.05, size * 0.14, size * 0.12, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Horns
+    ctx.fillStyle = '#8B4513';
+    ctx.beginPath();
+    ctx.moveTo(size * 0.2, -size * 0.15);
+    ctx.lineTo(size * 0.15, -size * 0.28);
+    ctx.lineTo(size * 0.25, -size * 0.15);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(size * 0.28, -size * 0.13);
+    ctx.lineTo(size * 0.3, -size * 0.25);
+    ctx.lineTo(size * 0.33, -size * 0.13);
+    ctx.fill();
+
+    // Eyes (red, fierce)
+    ctx.fillStyle = '#ff3300';
+    ctx.beginPath();
+    ctx.arc(size * 0.28, -size * 0.08, size * 0.04, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.ellipse(size * 0.28, -size * 0.08, size * 0.015, size * 0.035, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Nostrils with smoke
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(size * 0.34, -size * 0.03, size * 0.015, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(size * 0.34, 0, size * 0.015, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mouth
+    ctx.strokeStyle = '#145214';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(size * 0.32, size * 0.02);
+    ctx.lineTo(size * 0.38, size * 0.01);
+    ctx.stroke();
+
+    // Legs
+    ctx.fillStyle = '#228B22';
+    for (const [lx, ly] of [[-0.15, 0.18], [0.0, 0.18], [0.1, 0.18], [0.2, 0.18]]) {
+      ctx.beginPath();
+      ctx.roundRect((lx - 0.025) * size, ly * size, size * 0.05, size * 0.1, 3);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // TAIL with red weakness marker
+    const tx = boss.tailPosition.x * cs + cs / 2;
+    const ty = boss.tailPosition.y * cs + cs / 2;
+
+    // Tail line (segmented)
+    ctx.strokeStyle = '#228B22';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(cx - boss.facingDir * size * 0.3, cy);
+    const midX = (cx - boss.facingDir * size * 0.3 + tx) / 2;
+    const midY = cy - cs * 0.5;
+    ctx.quadraticCurveTo(midX, midY, tx, ty);
+    ctx.stroke();
+
+    // Red weakness circle
+    const pulse = 0.8 + Math.sin(this.time * 6) * 0.2;
+    ctx.fillStyle = `rgba(255,0,0,${pulse})`;
+    ctx.beginPath();
+    ctx.arc(tx, ty, cs * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${cs * 0.3}px "PingFang SC", Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('弱点', tx, ty);
+
+    // HP bar
+    this.drawBossHP(boss, cx, by - cs * 0.5);
+  }
+
+  private drawBossHP(boss: Boss, cx: number, y: number): void {
+    const ctx = this.ctx;
+    const cs = this.cellSize;
+    const barW = boss.size * cs * 0.8;
+    const barH = 8;
+    const barX = cx - barW / 2;
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.roundRect(barX, y, barW, barH, 4);
+    ctx.fill();
+
+    // HP fill
+    const hpRatio = 1 - boss.hitCount / boss.maxHits;
+    if (hpRatio > 0) {
+      const grad = ctx.createLinearGradient(barX, y, barX + barW, y);
+      grad.addColorStop(0, '#ff4444');
+      grad.addColorStop(1, '#ff8800');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(barX, y, barW * hpRatio, barH, 4);
+      ctx.fill();
+    }
+
+    // Label
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${cs * 0.25}px "PingFang SC", Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const name = boss.type === 'lion' ? '🦁 狮子王' : boss.type === 'dragon' ? '🐉 神龙' : '🐊 鳄鱼王';
+    ctx.fillText(`${name} ${boss.maxHits - boss.hitCount}/${boss.maxHits}`, cx, y - cs * 0.2);
+  }
 
   // ===================== UI =====================
 
